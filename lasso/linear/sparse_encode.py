@@ -2,7 +2,8 @@ import warnings
 import torch
 
 from .utils import lstsq, ridge
-from .solvers import (lasso_cd, gpsr_basic, iterative_ridge, ista)
+from .solvers import (lasso_cd, gpsr_basic, iterative_ridge, ista,
+                      interior_point)
 
 
 def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
@@ -36,6 +37,8 @@ def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
         z, _ = iterative_ridge(z0, x, weight, alpha, **kwargs)
     elif algorithm == 'ista':
         z = ista(x, z0, weight, alpha, **kwargs)
+    elif algorithm == 'ip':
+        z, _ = interior_point(x, weight, z0, alpha, **kwargs)
     else:
         raise ValueError("invalid algorithm parameter '{}'.".format(algorithm))
 
