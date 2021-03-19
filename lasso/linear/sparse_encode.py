@@ -2,7 +2,7 @@ import warnings
 import torch
 
 from .utils import lstsq, ridge
-from .solvers import (lasso_cd, gpsr_basic, iterative_ridge, ista,
+from .solvers import (coord_descent, gpsr_basic, iterative_ridge, ista,
                       interior_point)
 
 
@@ -28,7 +28,7 @@ def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
         raise ValueError("invalid init parameter '{}'.".format(init))
 
     if algorithm == 'cd':
-        z = lasso_cd(x, weight, z0, alpha, **kwargs)
+        z = coord_descent(x, weight, z0, alpha, **kwargs)
     elif algorithm == 'gpsr':
         A = lambda v: torch.mm(v, weight.T)
         AT = lambda v: torch.mm(v, weight)

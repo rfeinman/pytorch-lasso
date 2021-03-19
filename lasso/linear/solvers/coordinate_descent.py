@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 
 
-def lasso_cd(x, W, z0=None, alpha=1.0, maxiter=1000, tol=1e-6, verbose=False):
+def coord_descent(x, W, z0=None, alpha=1.0, maxiter=1000, tol=1e-6, verbose=False):
     input_dim, code_dim = W.shape  # [D,K]
     batch_size, input_dim1 = x.shape  # [N,D]
     assert input_dim1 == input_dim
