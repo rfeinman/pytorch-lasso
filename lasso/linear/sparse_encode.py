@@ -34,7 +34,7 @@ def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
         AT = lambda v: torch.mm(v, weight)
         z = gpsr_basic(x, A, tau=alpha, AT=AT, x0=z0, **kwargs)
     elif algorithm == 'iter-ridge':
-        z, _ = iterative_ridge(z0, x, weight, alpha, **kwargs)
+        z = iterative_ridge(z0, x, weight, alpha, **kwargs)
     elif algorithm == 'ista':
         z = ista(x, z0, weight, alpha, **kwargs)
     elif algorithm == 'ip':
