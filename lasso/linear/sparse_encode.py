@@ -12,7 +12,7 @@ def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
     if z0 is not None:
         assert z0.shape == (n_samples, n_components)
     elif init == 'zero':
-        if algorithm == 'it-ridge':
+        if algorithm == 'iter-ridge':
             warnings.warn("IteratedRidge should not be zero-initialized.")
         z0 = x.new_zeros(n_samples, n_components)
     elif init == 'unif':
@@ -32,7 +32,7 @@ def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
         A = lambda v: torch.mm(v, weight.T)
         AT = lambda v: torch.mm(v, weight)
         z = gpsr_basic(x, A, tau=alpha, AT=AT, x0=z0, **kwargs)
-    elif algorithm == 'it-ridge':
+    elif algorithm == 'iter-ridge':
         z, _ = iterative_ridge(z0, x, weight, alpha, **kwargs)
     elif algorithm == 'ista':
         z = ista(x, z0, weight, alpha, **kwargs)
