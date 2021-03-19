@@ -103,9 +103,9 @@ def interior_point(
         # ---------------------------
         #     Newton directions
         # ---------------------------
-        #s_inv = torch.where(s.abs() > eps, 1 / s, eps * s.sign())
+        s_inv = s.reciprocal().masked_fill(s.abs() < eps, 0)
         #s_inv = s.reciprocal().masked_fill(s.abs() < eps, eps)
-        s_inv = s.reciprocal().clamp(-1/eps, 1/eps)
+        #s_inv = s.reciprocal().clamp(-1/eps, 1/eps)
         d = s_inv * z  # [B, 2K]
 
         # direction for lambda (use cholesky solve)
