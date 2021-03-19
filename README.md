@@ -1,4 +1,4 @@
-# PyTorch-Lasso
+# PyTorch Lasso
 
 This is a library of...
 
