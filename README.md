@@ -10,7 +10,7 @@ __At a glance:__
 import torch
 from lasso.linear import dict_learning, sparse_encode
 
-# dummy data matrix (observations)
+# dummy data matrix
 data = torch.randn(100, 10)
 
 # Dictionary Learning
