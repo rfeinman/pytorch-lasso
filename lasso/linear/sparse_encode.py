@@ -5,16 +5,26 @@ from .utils import lstsq, ridge
 from .solvers import (coord_descent, gpsr_basic, iterative_ridge, ista,
                       interior_point)
 
+_init_defaults = {
+    'ista': 'zero',
+    'cd': 'zero',
+    'gpsr': 'zero',
+    'iter-ridge': 'ridge',
+    'interior-point': 'ridge'
+}
 
-def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
+def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init=None,
                   **kwargs):
     n_samples = x.size(0)
     n_components = weight.size(1)
+    if init is None:
+        init = _init_defaults.get(algorithm, 'zero')
+
     if z0 is not None:
         assert z0.shape == (n_samples, n_components)
     elif init == 'zero':
         if algorithm == 'iter-ridge':
-            warnings.warn("IteratedRidge should not be zero-initialized.")
+            warnings.warn("Iterative Ridge should not be zero-initialized.")
         z0 = x.new_zeros(n_samples, n_components)
     elif init == 'unif':
         z0 = x.new(n_samples, n_components).uniform_(-0.1, 0.1)
