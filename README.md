@@ -64,13 +64,17 @@ The `lasso.linear` module gathers a number of popular algorithms for this settin
 
 ### 2D Convolution
 
-Another "linear" setting of interest is 2D convolution. In this case, our linear basis is a large (and very sparse) matrix with block-Toeplitz structure, i.e. x_hat = conv2d(z, W). Many of the classical linear solvers are not applicable to this setting. The `lasso.conv2d` module implements a few solvers specialized for the 2D convolution setting, inspired by those discussed above. They are:
+Another "linear" setting of interest is 2D convolution. 
+In this case, our linear basis is a large (and very sparse) matrix with block-Toeplitz structure. 
+Many of the classical linear solvers are not applicable to this setting. 
+The `lasso.conv2d` module implements a few solvers specialized for the 2D convolution setting, inspired by those discussed above. They are:
 
 - __ISTA__: As described above, but optimized for the conv setting. I've included code to estimate the lipschitz constant of a conv2d operator. This is needed for optimal learning rate selection.
+- __GPSR__: This algorithm works with convolution, but is not yet included by default in the `lasso.conv2d` library. It is coming soon.
 
 ### Nonlinear extensions
 
-The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z) for a nonlinear decoder D.
+The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z) for a nonlinear decoder D. Coming soon: a more detailed description of the current nonlinear offerings and ongoing developments.
 
 
 ## 3. Dictionary Learning
