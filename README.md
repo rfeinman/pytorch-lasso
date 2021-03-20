@@ -4,6 +4,27 @@ Author: Reuben Feinman (New York University)
 
 This repository is a work in progress; contributions are welcome (and appreciated)!
 
+__At a glance:__
+
+```python
+import torch
+
+data = torch.randn(100, 10)  # dummy data matrix (observations)
+
+### Dictionary Learning ###
+from lasso.linear import dict_learning
+
+dictionary, losses = dict_learning(data, n_components=50, alpha=0.5, 
+                                   algorithm='ista')
+
+### Sparse Coding (lasso solvers) ###
+from lasso.linear import sparse_encode
+
+coeffs = sparse_encode(data, dictionary, alpha=0.2, algorithm='interior-point')
+```
+
+__Lasso solvers:__ ISTA, GPSR, Interior Point, Iterative Ridge, Coordinate Descent
+
 ## 1. Overview
 
 Pytorch-lasso is a collection of utilities for sparse coding and dictionary learning in PyTorch. 
@@ -32,10 +53,9 @@ The problem is typically solved in an EM fashion by iterating between solving th
 
 ## 2. Lasso Solvers
 
-### Linear solvers
+### Linear
 
-There are a wide variety of lasso solvers for the classical "linear" setting, i.e. the case where our dictionary is an overcomplete linear basis W. 
-In this case we write our reconstructed signal as x_hat = Wz for a [d x k] matrix W. 
+There are a variety of lasso solvers for the classical "linear" setting, i.e. the case where our dictionary is an overcomplete linear basis W.
 The `lasso.linear` module gathers a number of popular algorithms for this setting. The solvers include:
 
 - __ISTA__: Iterative shrinkage thresholding algorithms, including the "fast" variant described in [2]. This algorithm is very efficient and produces good results in most cases. It's a good default.
@@ -44,20 +64,24 @@ The `lasso.linear` module gathers a number of popular algorithms for this settin
 - __Iterative Ridge__: An iterative approach developed by [6]. Using the approximation norm(z, 1) = norm(z, 2)^2 / norm(z, 1), this method applies an update rule inspired by ridge regression. The updates are applied iteratively since the step now depends on z. I've included an optional line search (used by default) that makes convergence much faster. This method is the fastest and most consistent in my experiments.
 - __Coordinate Descent__: A popular approach for sparse coding (often thought as the fastest algorithm) developed in [7]. My current implementation is a work-in-progress.
 
-### Linear solvers for 2D convolution
+### 2D convolution
 
-Another "linear" setting is the case of 2D convolution. In this case, our linear basis is a large (and very sparse) matrix with block-Toeplitz structure, i.e. x_hat = conv2d(z, W). Many of the classical linear solvers are not applicable to this setting. I've implemented a few solvers specialized for the 2D convolution setting, inspired by those above. They are:
+Another "linear" setting is the case of 2D convolution. In this case, our linear basis is a large (and very sparse) matrix with block-Toeplitz structure, i.e. x_hat = conv2d(z, W). Many of the classical linear solvers are not applicable to this setting. The `lasso.conv2d` module implements a few solvers specialized for the 2D convolution setting, inspired by those discussed above. They are:
 
 - __ISTA__: As described above, but optimized for the conv setting. I've included code to estimate the lipschitz constant of a conv2d operator. This is needed for optimal learning rate selection.
 
-### Nonlinear solvers
+### Nonlinear extensions
 
 Finally, I've included some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z) for a nonlinear decoder D.
 
 
 ## 3. Dictionary Learning
 
-Pytorch-lasso includes 
+In addition to lasso solvers, pytorch-lasso provides implementations of dictionary learning (sparse matrix factorization). 
+The structure is inspired by Scikit Learn's `sklearn.decomposition` module. 
+In sklearn, the dictionary is constrained such that each component vector has unit norm. 
+This framework is great for linear models, however, it's unclear how it extends to nonlinear decoders. 
+Pytorch-lasso offers two variants of the dictionary learning problem: 1) the "constrained" unit-norm variant, and 2) an "unconstrained" counterpart with L2 dictionary regularization.
 
 
 ## References
