@@ -2,7 +2,7 @@ from torch import Tensor
 import torch
 import torch.nn.functional as F
 
-from ..utils import lstsq, batch_cholesky_solve
+from ..utils import ridge, batch_cholesky_solve
 
 
 def _check_inputs(x, weight, z0):
@@ -101,7 +101,7 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
     """
     batch_size, input_size, code_size = _check_inputs(x, weight, z0)
     if z0 is None:
-        z0 = lstsq(x.T, weight).T
+        z0 = ridge(x.T, weight, alpha=alpha).T
     tol = tol * z0.numel()
 
     # barrier parameter
