@@ -1,8 +1,8 @@
 # PyTorch Lasso
 
-Author: Reuben Feinman (New York University)
+A PyTorch library for L1-regularized least squares problems. This library is a work in progress; contributions are welcome (and appreciated)!
 
-This repository is a work in progress; contributions are welcome (and appreciated)!
+Author: Reuben Feinman (New York University)
 
 __At a glance:__
 
