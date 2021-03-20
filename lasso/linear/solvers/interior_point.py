@@ -60,9 +60,8 @@ def _initialize_params(z0, weight, alpha):
     return z, lmbda, s, weight_pn
 
 
-def interior_point(
-        x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
-        tol=1e-8, eps=1e-5, verbose=False):
+def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
+                   tol=1e-8, eps=1e-5, verbose=False):
     """Interior point method, non-negative variables with log barrier
 
     Explained in section 2.3 of Mark Schmidt, 2005:
@@ -103,6 +102,7 @@ def interior_point(
     batch_size, input_size, code_size = _check_inputs(x, weight, z0)
     if z0 is None:
         z0 = lstsq(x.T, weight).T
+    tol = tol * z0.numel()
 
     # barrier parameter
     mu = barrier_init * x.new_ones(batch_size, 1)  # [B,1]
@@ -139,13 +139,19 @@ def interior_point(
         rhs = rb - torch.matmul(rhs, weight.T)  # [B,D]
         M = torch.matmul(weight, d.unsqueeze(2) * weight.T.unsqueeze(0))
         M.diagonal(dim1=1, dim2=2).add_(1)  # [B,D,D]
-        d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
+        try:
+            d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
+        except RuntimeError as exc:
+            if 'singular' not in exc.args[0]:
+                raise
+            # fall back to LU-based solver
+            d_lmbda = torch.solve(rhs.unsqueeze(2), M)[0].squeeze(2)
 
         # TODO: use this alternative d_lmbda solver based on Woodbury identity?
         #M = torch.matmul(weight.T, weight).repeat(batch_size,1,1)
         #M.diagonal(dim1=1, dim2=2).add_(s * _general_inverse(z, eps))
         #d_lmbda = torch.matmul(rhs, weight)
-        #batch_cholesky_solve(d_lmbda, M, inplace=True)
+        #d_lmbda = batch_cholesky_solve(d_lmbda, M)
         #d_lmbda = rhs - torch.matmul(d_lmbda, weight.T)
 
         # direction for s
@@ -191,6 +197,10 @@ def interior_point(
         primal_feas = rb.norm() / (1 + z_norm)
         dual_feas = ra.norm() / (1 + lmbda_norm)
         duality_gap = (z*s).sum() / (1 + z_norm * lmbda_norm)
+        if verbose:
+            print('iter %0.2i | p_feas: %0.4e | d_feas: %0.4e | d_gap: %0.4e' %
+                  (i, primal_feas, dual_feas, duality_gap))
+
         if (primal_feas < tol) and (dual_feas < tol) and (duality_gap < tol):
             success = True
             break
