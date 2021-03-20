@@ -139,13 +139,7 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         rhs = rb - torch.matmul(rhs, weight.T)  # [B,D]
         M = torch.matmul(weight, d.unsqueeze(2) * weight.T.unsqueeze(0))
         M.diagonal(dim1=1, dim2=2).add_(1)  # [B,D,D]
-        try:
-            d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
-        except RuntimeError as exc:
-            if 'singular' not in exc.args[0]:
-                raise
-            # fall back to LU-based solver
-            d_lmbda = torch.solve(rhs.unsqueeze(2), M)[0].squeeze(2)
+        d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
 
         # TODO: use this alternative d_lmbda solver based on Woodbury identity?
         #M = torch.matmul(weight.T, weight).repeat(batch_size,1,1)

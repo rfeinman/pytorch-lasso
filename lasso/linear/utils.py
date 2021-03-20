@@ -1,3 +1,4 @@
+import warnings
 import torch
 
 
@@ -50,6 +51,13 @@ def batch_cholesky_solve(b, A):
     assert b.dim() == 2  # [B,D]
     assert A.dim() == 3  # [B,D,D]
     b = b.unsqueeze(2)  # [B,D,1]
-    L = torch.cholesky(A)  # [B,D,D]
-    x = torch.cholesky_solve(b, L)  # [B,D,1]
+    try:
+        L = torch.cholesky(A)  # [B,D,D]
+        x = torch.cholesky_solve(b, L)  # [B,D,1]
+    except RuntimeError as exc:
+        if 'singular' not in exc.args[0]:
+            raise
+        warnings.warn('Cholesky factorization failed. Reverting to LU '
+                      'decomposition...')
+        x = torch.solve(b, A)[0]  # [B,D,1]
     return x.squeeze(2)
