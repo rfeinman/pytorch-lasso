@@ -16,7 +16,7 @@ The canonical lasso formulation is an L1-regularized (linear) least squares prob
 </p>
 
 where <img src="http://latex.codecogs.com/svg.latex?x&space;\in&space;\mathbb{R}^d" title="http://latex.codecogs.com/svg.latex?x \in \mathbb{R}^d" /> is an observation vector, <img src="http://latex.codecogs.com/svg.latex?W&space;\in&space;\mathbb{R}^{d&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?W \in \mathbb{R}^{d \times k}" /> a dictionary matrix, and <img src="http://latex.codecogs.com/svg.latex?z&space;\in&space;\mathbb{R}^k" title="http://latex.codecogs.com/svg.latex?z \in \mathbb{R}^k" /> a vector of sparse coefficients. 
-Typically the dictionary is overcomplete, i.e. <img src="http://latex.codecogs.com/svg.latex?k&space;>&space;d" title="http://latex.codecogs.com/svg.latex?k > d" />. 
+Typically the dictionary is overcomplete, i.e. <img src="http://latex.codecogs.com/svg.latex?k&space;>&space;d" />.
 Pytorch-lasso includes a number of techniques for solving the linear lasso problem, detailed in Section 2. 
 I'm grateful to Mark Schmidt, whose lecture notes guided my literature review [1].
 
