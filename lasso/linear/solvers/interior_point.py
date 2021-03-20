@@ -186,8 +186,8 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         s += update_s
         mu *= 1 - torch.min(beta_z, beta_sl).clamp(None, 0.99)
 
-        # sanity check: are all variables still greater than 0?
-        assert torch.all(z > 0) and torch.all(s > 0)
+        # sanity check: are all variables still >= 0?
+        assert torch.all(z >= 0) and torch.all(s >= 0)
 
 
         # -------------------------------
@@ -209,6 +209,6 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
             break
 
     z_pos, z_neg = z.chunk(2, dim=1)
-    zf = F.relu(z_pos) - F.relu(z_neg)
+    zf = z_pos - z_neg
 
     return zf, success
