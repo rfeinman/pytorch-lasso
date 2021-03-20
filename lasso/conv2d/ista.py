@@ -1,7 +1,7 @@
 import math
 import torch.nn.functional as F
 
-from .lip_bound import LipBoundConv2d
+from .lip_bound import lip_bound_conv2d
 
 
 def ista_conv2d(x, z0, weight, alpha=1.0, stride=1, padding=0, fast=True,
@@ -10,7 +10,7 @@ def ista_conv2d(x, z0, weight, alpha=1.0, stride=1, padding=0, fast=True,
         if stride != 1:
             raise NotImplementedError("auto lr not implemented for stride > 1.")
         # set lr based on the maximum eigenvalue of W^T @ W
-        L = LipBoundConv2d(weight.shape, padding=padding, squared=True)(weight)
+        L = lip_bound_conv2d(weight, padding, squared=True)
         lr = 1 / L
     tol = z0.numel() * tol
 
