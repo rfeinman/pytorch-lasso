@@ -61,15 +61,15 @@ The `lasso.linear` module gathers a number of popular algorithms for this settin
 - __Iterative Ridge__: An iterative approach developed by [6]. Using the approximation norm(z, 1) = norm(z, 2)^2 / norm(z, 1), this method applies an update rule inspired by ridge regression. The updates are applied iteratively since the step now depends on z. I've included an optional line search (used by default) that makes convergence much faster. This method is the fastest and most consistent in my experiments.
 - __Coordinate Descent__: A popular approach for sparse coding (often thought as the fastest algorithm) developed in [7]. My current implementation is a work-in-progress.
 
-### 2D convolution
+### 2D Convolution
 
-Another "linear" setting is the case of 2D convolution. In this case, our linear basis is a large (and very sparse) matrix with block-Toeplitz structure, i.e. x_hat = conv2d(z, W). Many of the classical linear solvers are not applicable to this setting. The `lasso.conv2d` module implements a few solvers specialized for the 2D convolution setting, inspired by those discussed above. They are:
+Another "linear" setting is 2D convolution. In this case, our linear basis is a large (and very sparse) matrix with block-Toeplitz structure, i.e. x_hat = conv2d(z, W). Many of the classical linear solvers are not applicable to this setting. The `lasso.conv2d` module implements a few solvers specialized for the 2D convolution setting, inspired by those discussed above. They are:
 
 - __ISTA__: As described above, but optimized for the conv setting. I've included code to estimate the lipschitz constant of a conv2d operator. This is needed for optimal learning rate selection.
 
 ### Nonlinear extensions
 
-Finally, I've included some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z) for a nonlinear decoder D.
+The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z) for a nonlinear decoder D.
 
 
 ## 3. Dictionary Learning
