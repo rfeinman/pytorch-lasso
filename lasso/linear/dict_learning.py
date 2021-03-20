@@ -21,7 +21,7 @@ def dict_evaluate(X, weight, alpha, **kwargs):
 
 
 def dict_learning(X, n_components, alpha=1.0, constrained=True, persist=False,
-                  lambd=1e-2, steps=20, device='cpu', progbar=True,
+                  lambd=1e-2, steps=60, device='cpu', progbar=True,
                   **solver_kwargs):
     n_samples, n_features = X.shape
     X = X.to(device)
