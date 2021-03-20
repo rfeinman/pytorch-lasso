@@ -7,9 +7,9 @@ from ..utils import ridge, batch_cholesky_solve
 
 
 class BasicReport(ReportBase):
-    COLUMN_NAMES = ["niter", "obj func", "prim feas", "dual feas", "dual gap"]
-    COLUMN_WIDTHS = [7, 15, 12, 12, 11]
-    ITERATION_FORMATS = ["^7", "^+15.4e", "^12.2e", "^12.2e", "^11.2e"]
+    COLUMN_NAMES = ["niter", "obj func", "prim feas", "dual feas", "gap"]
+    COLUMN_WIDTHS = [7, 15, 12, 12, 10]
+    ITERATION_FORMATS = ["^7", "^+15.4e", "^12.2e", "^12.2e", "^10.2e"]
 
 
 def _check_inputs(x, weight, z0):
