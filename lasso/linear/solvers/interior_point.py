@@ -1,8 +1,15 @@
 from torch import Tensor
 import torch
 import torch.nn.functional as F
+from scipy.optimize._trustregion_constr.report import ReportBase
 
 from ..utils import ridge, batch_cholesky_solve
+
+
+class BasicReport(ReportBase):
+    COLUMN_NAMES = ["niter", "obj func", "prim feas", "dual feas", "dual gap"]
+    COLUMN_WIDTHS = [7, 15, 12, 12, 11]
+    ITERATION_FORMATS = ["^7", "^+15.4e", "^12.2e", "^12.2e", "^11.2e"]
 
 
 def _check_inputs(x, weight, z0):
@@ -113,11 +120,13 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
     def f(z_k, lmbda_k):
         return alpha * z_k.sum() + 0.5 * lmbda_k.pow(2).sum()
 
+    if verbose:
+        print('initial obj func: %0.4e\n' % f(z, lmbda))
+        BasicReport.print_header()
+
     # Optimize
     success = False
     for i in range(maxiter):
-        if verbose:
-            print('loss_%0.2i: %0.4f' % (i, f(z, lmbda)))
 
         # ---------------------------
         #   KKT condition values
@@ -192,8 +201,8 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         dual_feas = ra.norm() / (1 + lmbda_norm)
         duality_gap = (z*s).sum() / (1 + z_norm * lmbda_norm)
         if verbose:
-            print('iter %0.2i | p_feas: %0.4e | d_feas: %0.4e | d_gap: %0.4e' %
-                  (i, primal_feas, dual_feas, duality_gap))
+            BasicReport.print_iteration(i+1, f(z,lmbda), primal_feas,
+                                        dual_feas, duality_gap)
 
         if (primal_feas < tol) and (dual_feas < tol) and (duality_gap < tol):
             success = True
