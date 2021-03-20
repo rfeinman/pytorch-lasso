@@ -8,9 +8,10 @@ def ista_conv2d(x, z0, weight, alpha=1.0, stride=1, padding=0, fast=True,
                 maxiter=10, lr='auto', tol=1e-5, verbose=False):
     if lr == 'auto':
         if stride != 1:
-            raise NotImplementedError("auto lr not implemented for stride > 1.")
+            raise NotImplementedError("auto lr is only implemented for "
+                                      "stride == 1.")
         # set lr based on the maximum eigenvalue of W^T @ W
-        L = lip_bound_conv2d(weight, padding, squared=True)
+        L = lip_bound_conv2d(weight, padding)
         lr = 1 / L
     tol = z0.numel() * tol
 

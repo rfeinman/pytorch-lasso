@@ -1,7 +1,6 @@
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class LipBoundConv2d(nn.Module):
@@ -14,13 +13,10 @@ class LipBoundConv2d(nn.Module):
     theory" by Araujo et al., 2020.
 
     For ISTA we need the max eigenvalue of W^T W, corresponding to the square
-    of the max singular value of W. Hence we set squared=True by default for
+    of the max singular value of W. Hence we set sqrt=False by default for
     the classical ISTA use case.
-
-    Paper: https://arxiv.org/abs/2006.08391
-    Code: https://github.com/MILES-PSL/Upper-Bound-Lipschitz-Convolutional-Layers
     """
-    def __init__(self, kernel_size, padding, stride=1, sample=50, squared=True):
+    def __init__(self, kernel_size, padding, stride=1, sample=50, sqrt=False):
         super().__init__()
         assert len(kernel_size) == 4
         if not kernel_size[-1] == kernel_size[-2]:
@@ -31,7 +27,7 @@ class LipBoundConv2d(nn.Module):
             raise NotImplementedError("LipBound not implemented for stride > 1.")
         ksize = kernel_size[-1]
         self.ksize = ksize
-        self.squared = squared
+        self.sqrt = sqrt
 
         # define frequencies \omega0 and \omega1
         x = torch.linspace(0, 2*math.pi, sample)
@@ -63,13 +59,13 @@ class LipBoundConv2d(nn.Module):
         poly2 = poly_imag.square().sum(1)  # [Co, S**2]
         poly = poly1 + poly2
         bound = poly.max(-1)[0].sum()  # maximum eigenvalue of W^T W
-        if not self.squared:
+        if self.sqrt:
             bound = bound.sqrt()  # maximum singular value of W
 
         return bound
 
 
-def lip_bound_conv2d(kernel, padding, stride=1, sample=50, squared=True):
+def lip_bound_conv2d(kernel, padding, stride=1, sample=50, sqrt=False):
     """functional variant of the above module"""
     assert kernel.dim() == 4
     if not kernel.size(-1) == kernel.size(-2):
@@ -105,7 +101,7 @@ def lip_bound_conv2d(kernel, padding, stride=1, sample=50, squared=True):
     poly2 = poly_imag.square().sum(1)  # [Co, S**2]
     poly = poly1 + poly2
     bound = poly.max(-1)[0].sum()  # maximum eigenvalue of W^T W
-    if not squared:
+    if sqrt:
         bound = bound.sqrt()  # maximum singular value of W
 
     return bound
