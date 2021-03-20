@@ -37,7 +37,7 @@ def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init='zero',
         z = iterative_ridge(z0, x, weight, alpha, **kwargs)
     elif algorithm == 'ista':
         z = ista(x, z0, weight, alpha, **kwargs)
-    elif algorithm == 'ip':
+    elif algorithm == 'interior-point':
         z, _ = interior_point(x, weight, z0, alpha, **kwargs)
     else:
         raise ValueError("invalid algorithm parameter '{}'.".format(algorithm))
