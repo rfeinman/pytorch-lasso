@@ -56,7 +56,7 @@ Pytorch-lasso includes modules for dictionary learning in two forms: 1) a "const
 There are a variety of lasso solvers for the classical "linear" setting, i.e. the case where our dictionary is an overcomplete linear basis W.
 The `lasso.linear` module gathers a number of popular algorithms for this setting. The solvers include:
 
-- __ISTA__: Iterative shrinkage thresholding algorithms, including the "fast" variant described in [2]. This algorithm is very efficient and produces good results in most cases. It's a good default.
+- __ISTA__: Iterative shrinkage thresholding algorithms, including the "fast" variant described in [2]. An option for backtracking line-search is provided. This algorithm is very efficient and produces good results in most cases. It's a great default to use.
 - __GPSR__: The projected gradient method described in [3]. The lasso problem is reformulated as a box-constrained quadratic programming problem and solved by a gradient projection algorithm. At the moment, I've only implemented the _GPSR-Basic_ variant of the algorithm.
 - __Interior Point__: The primal-dual interior point method proposed in [4] (also known as _basis pursuit_). The algorithm is summarized nicely in [5], and also in section 2.3 of [1]. I used these descriptions to develop my implementation.
 - __Iterative Ridge__: An iterative approach developed by [6]. Using the approximation norm(z, 1) = norm(z, 2)^2 / norm(z, 1), this method applies an update rule inspired by ridge regression. The updates are applied iteratively since the step now depends on z. I've included an optional line search (used by default) that makes convergence much faster. This method is the fastest and most consistent in my experiments.
