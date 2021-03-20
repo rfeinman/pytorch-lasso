@@ -8,18 +8,15 @@ __At a glance:__
 
 ```python
 import torch
+from lasso.linear import dict_learning, sparse_encode
 
-data = torch.randn(100, 10)  # dummy data matrix (observations)
+# dummy data matrix (observations)
+data = torch.randn(100, 10)
 
-### Dictionary Learning ###
-from lasso.linear import dict_learning
+# Dictionary Learning
+dictionary, losses = dict_learning(data, n_components=50, alpha=0.5, algorithm='ista')
 
-dictionary, losses = dict_learning(data, n_components=50, alpha=0.5, 
-                                   algorithm='ista')
-
-### Sparse Coding (lasso solvers) ###
-from lasso.linear import sparse_encode
-
+# Sparse Coding (lasso solve)
 coeffs = sparse_encode(data, dictionary, alpha=0.2, algorithm='interior-point')
 ```
 
