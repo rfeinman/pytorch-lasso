@@ -20,6 +20,12 @@ def _check_inputs(x, weight, z0):
     return batch_size, input_size, code_size
 
 
+def _general_inverse(x, eps):
+    #return x.reciprocal().masked_fill(x.abs() < eps, eps)
+    #return x.reciprocal().clamp(-1/eps, 1/eps)
+    return x.reciprocal().masked_fill(x.abs() < eps, 0)
+
+
 def interior_point(
         x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         tol=1e-8, tol_change=1e-8, eps=1e-5, verbose=False):
@@ -103,18 +109,23 @@ def interior_point(
         # ---------------------------
         #     Newton directions
         # ---------------------------
-        s_inv = s.reciprocal().masked_fill(s.abs() < eps, 0)
-        #s_inv = s.reciprocal().masked_fill(s.abs() < eps, eps)
-        #s_inv = s.reciprocal().clamp(-1/eps, 1/eps)
+        s_inv = _general_inverse(s, eps)
         d = s_inv * z  # [B, 2K]
 
         # direction for lambda (use cholesky solve)
         rhs = s_inv * rc - d * ra
         rhs = rb - torch.matmul(rhs, weight.T)  # [B,D]
-        # compute M = I + WDW^T
-        M = torch.matmul(weight, d.unsqueeze(2) * weight.T.unsqueeze(0))  # [B,D,D]
-        M.diagonal(dim1=1, dim2=2).add_(1)
-        d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
+        # compute d_lmbda = (I + WDW^T)^{-1} rhs
+        #M = torch.matmul(weight, d.unsqueeze(2) * weight.T.unsqueeze(0))  # [B,D,D]
+        #M.diagonal(dim1=1, dim2=2).add_(1)
+        #d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
+        d_inv = s * _general_inverse(z, eps)
+        M = torch.matmul(weight.T, weight)
+        M = M.repeat(len(d_inv), 1, 1)
+        M.diagonal(dim1=1, dim2=2).add_(d_inv)
+        d_lmbda = torch.matmul(rhs, weight)
+        d_lmbda = batch_cholesky_solve(d_lmbda, M)
+        d_lmbda = rhs - torch.matmul(d_lmbda, weight.T)
 
         # direction for s
         d_s = ra - torch.matmul(d_lmbda, weight)
