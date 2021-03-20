@@ -47,7 +47,7 @@ Dictionary learning is a matrix factorization problem formulated as follows:
 
 In this case, <img src="http://latex.codecogs.com/svg.latex?X&space;\in&space;\mathbb{R}^{n&space;\times&space;d}" title="http://latex.codecogs.com/svg.latex?X \in \mathbb{R}^{n \times d}" /> and <img src="http://latex.codecogs.com/svg.latex?Z&space;\in&space;\mathbb{R}^{n&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?Z \in \mathbb{R}^{n \times k}" /> are observation and coefficient _matrices_ with n samples. 
 The problem is typically solved in an EM fashion by iterating between finding the optimal coefficients (lasso) for the current dictionary and finding the optimal dictionary (least-squares) for the current coefficients.
-Pytorch-lasso includes modules for dictionary learning of two kinds: 1) a "constrained" setting where dictionary atoms are constrained to unit norm (a la Scikit-Learn), and 2) an "unconstrained" setting where the unit-norm constraint is replaced by an L2 dictionary penalty. Details are given in Section 3.
+Pytorch-lasso includes modules for dictionary learning in two forms: 1) a "constrained" setting where dictionary atoms are constrained to unit norm (a la scikit-learn), and 2) an "unconstrained" setting where the unit constraint is replaced by an L2 dictionary penalty. Details are provided in Section 3.
 
 ## 2. Lasso Solvers
 
