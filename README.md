@@ -46,7 +46,7 @@ Dictionary learning is a matrix factorization problem formulated as follows:
 </p>
 
 In this case, <img src="http://latex.codecogs.com/svg.latex?X&space;\in&space;\mathbb{R}^{n&space;\times&space;d}" title="http://latex.codecogs.com/svg.latex?X \in \mathbb{R}^{n \times d}" /> and <img src="http://latex.codecogs.com/svg.latex?Z&space;\in&space;\mathbb{R}^{n&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?Z \in \mathbb{R}^{n \times k}" /> are observation and coefficient _matrices_ with n samples. 
-The problem is typically solved in an EM fashion by iterating between solving the lasso problem given the current dictionary and solving the least-squares dictionary update problem given the current coefficients.
+The problem is typically solved in an EM fashion by iterating between finding the optimal coefficients (lasso) for the current dictionary and finding the optimal dictionary (least-squares) for the current coefficients.
 
 ## 2. Lasso Solvers
 
