@@ -16,7 +16,9 @@ Where <img src="http://latex.codecogs.com/svg.latex?x&space;\in&space;\mathbb{R}
 
 In addition to solving for sparse coefficients with an existing dictionary, another problem of interest is _dictionary learning_. Dictionary learning is a matrix factorization problem formulated as
 
+<p align="center">
 <img src="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{W,Z}&space;\frac{1}{2}&space;||&space;ZW^T&space;-&space;X&space;||_2^2&space;&plus;&space;\alpha&space;||Z||_1\end{align*}&space;" title="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{W,Z} \frac{1}{2} || ZW^T - X ||_2^2 + \alpha ||Z||_1\end{align*} " />
+</p>
 
 where <img src="http://latex.codecogs.com/svg.latex?X&space;\in&space;\mathbb{R}^{n&space;\times&space;d}" title="http://latex.codecogs.com/svg.latex?X \in \mathbb{R}^{n \times d}" /> and <img src="http://latex.codecogs.com/svg.latex?Z&space;\in&space;\mathbb{R}^{n&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?Z \in \mathbb{R}^{n \times k}" /> are observation and coefficient matrices with n samples. The problem is typically solved in an EM fashion by iterating between solving the lasso problem given the current dictionary and solving the least-squares dictionary update problem given the current coefficients.
 
