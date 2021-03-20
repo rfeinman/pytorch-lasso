@@ -2,9 +2,9 @@
 
 Author: Reuben Feinman (New York University)
 
-## Overview
+## 1. Overview
 
-Pytorch-lasso is a collection of utilities for sparse coding and dictionary learning in PyTorch. The aim of the project is few-fold: 1) assemble a collection of different sparse coding techniques from the literature to support benchmarking and comparisons, 2) provide a modern implementation of popular algorithms with autograd and GPU support.
+Pytorch-lasso is a collection of utilities for sparse coding and dictionary learning in PyTorch. The aim of the project is few-fold: 1) to assemble a collection of different sparse coding techniques from the literature for benchmarking and comparisons, 2) to provide a modern implementation of popular algorithms with autograd and GPU support.
 
 The canonical lasso formulation is an L1-regularized (linear) least squares problem with the following form:
 
@@ -12,9 +12,15 @@ The canonical lasso formulation is an L1-regularized (linear) least squares prob
 <img src="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{z}&space;\frac{1}{2}&space;||&space;Wz&space;-&space;x&space;||_2^2&space;&plus;&space;\alpha&space;||z||_1\end{align*}&space;" title="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{z} \frac{1}{2} || Wz - x ||_2^2 + \alpha ||z||_1\end{align*} " /> 
 </p>
 
-Where <img src="http://latex.codecogs.com/svg.latex?x&space;\in&space;\mathbb{R}^d" title="http://latex.codecogs.com/svg.latex?x \in \mathbb{R}^d" /> is an observation vector, <img src="http://latex.codecogs.com/svg.latex?W&space;\in&space;\mathbb{R}^{d&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?W \in \mathbb{R}^{d \times k}" /> a dictionary matrix, and <img src="http://latex.codecogs.com/svg.latex?z&space;\in&space;\mathbb{R}^k" title="http://latex.codecogs.com/svg.latex?z \in \mathbb{R}^k" /> a vector of sparse coefficients.
+Where <img src="http://latex.codecogs.com/svg.latex?x&space;\in&space;\mathbb{R}^d" title="http://latex.codecogs.com/svg.latex?x \in \mathbb{R}^d" /> is an observation vector, <img src="http://latex.codecogs.com/svg.latex?W&space;\in&space;\mathbb{R}^{d&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?W \in \mathbb{R}^{d \times k}" /> a dictionary matrix, and <img src="http://latex.codecogs.com/svg.latex?z&space;\in&space;\mathbb{R}^k" title="http://latex.codecogs.com/svg.latex?z \in \mathbb{R}^k" /> a vector of sparse coefficients. I have implemented a number of techniques for solving the linear lasso problem, detailed in Section 2. I'm grateful to Mark Schmidt, whose lecture notes guided my literature review [1].
 
-## Lasso Solvers
+In addition to solving for sparse coefficients with an existing dictionary, another problem of interest is _dictionary learning_. Dictionary learning is a matrix factorization problem formulated as
+
+<img src="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{W,Z}&space;\frac{1}{2}&space;||&space;ZW^T&space;-&space;X&space;||_2^2&space;&plus;&space;\alpha&space;||Z||_1\end{align*}&space;" title="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{W,Z} \frac{1}{2} || ZW^T - X ||_2^2 + \alpha ||Z||_1\end{align*} " />
+
+where <img src="http://latex.codecogs.com/svg.latex?X&space;\in&space;\mathbb{R}^{n&space;\times&space;d}" title="http://latex.codecogs.com/svg.latex?X \in \mathbb{R}^{n \times d}" /> and <img src="http://latex.codecogs.com/svg.latex?Z&space;\in&space;\mathbb{R}^{n&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?Z \in \mathbb{R}^{n \times k}" /> are observation and coefficient matrices with n samples. The problem is typically solved in an EM fashion by iterating between solving the lasso problem given the current dictionary and solving the least-squares dictionary update problem given the current coefficients.
+
+## 2. Lasso Solvers
 
 ### Linear solvers
 
@@ -35,6 +41,11 @@ Another "linear" setting is the case of 2D convolution. In this case, our linear
 ### Nonlinear solvers
 
 Finally, I've included some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z) for a nonlinear decoder D.
+
+
+## 3. Dictionary Learning
+
+pytorch-lasso includes 
 
 
 ## References
