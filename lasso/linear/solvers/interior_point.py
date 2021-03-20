@@ -26,6 +26,40 @@ def _general_inverse(x, eps):
     return x.reciprocal().masked_fill(x.abs() < eps, 0)
 
 
+def _initialize_params(z0, weight, alpha):
+    """Set initial parameters
+
+    Use the initialization scheme from section 2.3 of "Block coordinate
+    relaxation methods for nonparametrix wavelet denoising"
+    by Sardy et al. (2000)
+
+    z0 should be the ridge estimate.
+    """
+    # expand z and weight to pos/neg components
+    z0_pn = torch.cat([F.relu(z0), F.relu(-z0)], 1)  # [B,2K]
+    weight_pn = torch.cat([weight, -weight], 1)  # [D,2K]
+
+    # primal variable
+    z = z0_pn + 0.1
+
+    # tmp
+    y = torch.matmul(z0_pn.sign(), weight_pn.T)
+    omega = 1.1 * torch.matmul(y, weight).abs().max(1, keepdim=True)[0]
+
+    # dual variable
+    lmbda = alpha * y / omega  # [B,D]
+
+    # dual slack variables
+    s = alpha - torch.matmul(lmbda, weight_pn)  # [B,2K]
+
+    # sanity check
+    assert torch.all(z > 0) and torch.all(s > 0)
+    tmp = torch.matmul(lmbda, weight)
+    assert torch.all((-alpha < tmp) & (tmp < alpha))
+
+    return z, lmbda, s, weight_pn
+
+
 def interior_point(
         x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         tol=1e-8, tol_change=1e-8, eps=1e-5, verbose=False):
@@ -72,21 +106,11 @@ def interior_point(
     if z0 is None:
         z0 = lstsq(x.T, weight).T
 
-    # expand z and weight to pos/neg components
-    z0 = torch.cat([F.relu(z0), F.relu(-z0)], 1)  # [B,2K]
-    weight = torch.cat([weight, -weight], 1)  # [D,2K]
-
     # barrier parameter
     mu = barrier_init * x.new_ones(batch_size, 1)  # [B,1]
 
-    # primal variable
-    z = z0  # [D,2K]
-
-    # dual variable
-    lmbda = x - torch.matmul(z, weight.T)  # [B,D]
-
-    # dual slack variable
-    s = alpha - torch.matmul(lmbda, weight)  # [B,2K]
+    # initialize dual and primal variables
+    z, lmbda, s, weight = _initialize_params(z0, weight, alpha)
 
     def f(z_k, lmbda_k):
         return alpha * z_k.sum() + 0.5 * lmbda_k.pow(2).sum()
@@ -115,17 +139,16 @@ def interior_point(
         # direction for lambda (use cholesky solve)
         rhs = s_inv * rc - d * ra
         rhs = rb - torch.matmul(rhs, weight.T)  # [B,D]
-        # compute d_lmbda = (I + WDW^T)^{-1} rhs
-        #M = torch.matmul(weight, d.unsqueeze(2) * weight.T.unsqueeze(0))  # [B,D,D]
-        #M.diagonal(dim1=1, dim2=2).add_(1)
-        #d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
-        d_inv = s * _general_inverse(z, eps)
-        M = torch.matmul(weight.T, weight)
-        M = M.repeat(len(d_inv), 1, 1)
-        M.diagonal(dim1=1, dim2=2).add_(d_inv)
-        d_lmbda = torch.matmul(rhs, weight)
-        d_lmbda = batch_cholesky_solve(d_lmbda, M)
-        d_lmbda = rhs - torch.matmul(d_lmbda, weight.T)
+        M = torch.matmul(weight, d.unsqueeze(2) * weight.T.unsqueeze(0))
+        M.diagonal(dim1=1, dim2=2).add_(1)  # [B,D,D]
+        d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
+
+        # TODO: use this alternative d_lmbda solver based on Woodbury identity?
+        #M = torch.matmul(weight.T, weight).repeat(batch_size,1,1)
+        #M.diagonal(dim1=1, dim2=2).add_(s * _general_inverse(z, eps))
+        #d_lmbda = torch.matmul(rhs, weight)
+        #batch_cholesky_solve(d_lmbda, M, inplace=True)
+        #d_lmbda = rhs - torch.matmul(d_lmbda, weight.T)
 
         # direction for s
         d_s = ra - torch.matmul(d_lmbda, weight)
@@ -138,16 +161,14 @@ def interior_point(
         #     Variable updates
         # --------------------------
         # step sizes
-        z_ratio = -z / d_z
-        z_ratio.masked_fill_(d_z >= 0, float('inf'))
+        z_ratio = (-z / d_z).masked_fill_(d_z >= 0, float('inf'))
         beta_z = z_ratio.min(1, keepdim=True)[0]  # [B,1]
-        s_ratio = -s / d_s
-        s_ratio.masked_fill_(d_s >= 0, float('inf'))
+        s_ratio = (-s / d_s).masked_fill_(d_s >= 0, float('inf'))
         beta_sl = s_ratio.min(1, keepdim=True)[0]  # [B,1]
 
         # include possibility of a full Newton step
-        beta_z.clamp_(float('-inf'), 1)
-        beta_sl.clamp_(float('-inf'), 1)
+        beta_z.clamp_(None, 1)
+        beta_sl.clamp_(None, 1)
 
         # update variables
         update_z = 0.99 * beta_z * d_z
@@ -156,18 +177,20 @@ def interior_point(
         z += update_z
         lmbda += update_lmbda
         s += update_s
+        mu *= 1 - torch.min(beta_z, beta_sl).clamp(None, 0.99)
 
-        if max(update_z.abs().max(), update_lmbda.abs().max(),
-               update_s.abs().max()) < tol_change:
-            break
-
-        # update barrier weight
-        mu *= 1 - torch.min(beta_z, beta_sl).clamp(float('-inf'), 0.99)
+        # sanity check: are all variables still greater than 0?
+        assert torch.all(z > 0) and torch.all(s > 0)
 
 
         # -------------------------------
         #     Check stopping criteria
         # -------------------------------
+
+        # check update size... TODO: remove this? (added by Reuben)
+        if max(update_z.abs().max(), update_lmbda.abs().max(),
+               update_s.abs().max()) < tol_change:
+            break
 
         # TODO: seperate convergence checks for each batch entry?
         z_norm = z.norm()
