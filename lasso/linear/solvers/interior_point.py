@@ -62,7 +62,7 @@ def _initialize_params(z0, weight, alpha):
 
 def interior_point(
         x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
-        tol=1e-8, tol_change=1e-8, eps=1e-5, verbose=False):
+        tol=1e-8, eps=1e-5, verbose=False):
     """Interior point method, non-negative variables with log barrier
 
     Explained in section 2.3 of Mark Schmidt, 2005:
@@ -88,8 +88,6 @@ def interior_point(
         Initial barrier weight. Will be decreased gradually.
     tol : float
         Tolerance for primal/dual feasibility and duality gap (optimality).
-    tol_change : float
-        Tolerance for variable changes.
     eps : float
         Minimum value threshold for generalized inverse
     verbose : bool
@@ -186,11 +184,6 @@ def interior_point(
         # -------------------------------
         #     Check stopping criteria
         # -------------------------------
-
-        # check update size... TODO: remove this? (added by Reuben)
-        if max(update_z.abs().max(), update_lmbda.abs().max(),
-               update_s.abs().max()) < tol_change:
-            break
 
         # TODO: seperate convergence checks for each batch entry?
         z_norm = z.norm()
