@@ -42,7 +42,7 @@ def ridge(b, A, alpha=1e-4):
     return x
 
 
-def batch_cholesky_solve(b, A, inplace=False):
+def batch_cholesky_solve(b, A):
     """
     Solve a batch of PSD linear systems, with a unique matrix A_k for
     each batch entry b_k
@@ -51,9 +51,5 @@ def batch_cholesky_solve(b, A, inplace=False):
     assert A.dim() == 3  # [B,D,D]
     b = b.unsqueeze(2)  # [B,D,1]
     L = torch.cholesky(A)  # [B,D,D]
-    if inplace:
-        torch.cholesky_solve(b, L, out=b)
-        return b.squeeze(2)
-    else:
-        x = torch.cholesky_solve(b, L)  # [B,D,1]
-        return x.squeeze(2)
+    x = torch.cholesky_solve(b, L)  # [B,D,1]
+    return x.squeeze(2)
