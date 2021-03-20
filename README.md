@@ -6,11 +6,13 @@ Author: Reuben Feinman (New York University)
 
 Pytorch-lasso is a collection of utilities for sparse coding and dictionary learning in PyTorch. The aim of the project is few-fold: 1) assemble a collection of different sparse coding techniques from the literature to support benchmarking and comparisons, 2) provide a modern implementation of popular algorithms with autograd and GPU support.
 
-Lasso is an L1-regularized least squares problem with the following form:
+The canonical lasso formulation is an L1-regularized (linear) least squares problem with the following form:
 
 <p align="center">
 <img src="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{z}&space;\frac{1}{2}&space;||&space;Wz&space;-&space;x&space;||_2^2&space;&plus;&space;\alpha&space;||z||_1\end{align*}&space;" title="http://latex.codecogs.com/svg.latex?\begin{align*}\min_{z} \frac{1}{2} || Wz - x ||_2^2 + \alpha ||z||_1\end{align*} " /> 
 </p>
+
+Where <img src="http://latex.codecogs.com/svg.latex?x&space;\in&space;\mathbb{R}^d" title="http://latex.codecogs.com/svg.latex?x \in \mathbb{R}^d" /> is an observation vector, <img src="http://latex.codecogs.com/svg.latex?W&space;\in&space;\mathbb{R}^{d&space;\times&space;k}" title="http://latex.codecogs.com/svg.latex?W \in \mathbb{R}^{d \times k}" /> a dictionary matrix, and <img src="http://latex.codecogs.com/svg.latex?z&space;\in&space;\mathbb{R}^k" title="http://latex.codecogs.com/svg.latex?z \in \mathbb{R}^k" /> a vector of sparse coefficients.
 
 ## Lasso Solvers
 
