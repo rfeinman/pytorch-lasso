@@ -11,16 +11,16 @@ def qr(A):
 
 
 def lstsq(b, A):
-    m, n = A.shape
+    m, n = A.shape[-2:]
     if m < n:
         # solve least-norm problem
-        Q, R = qr(A.T)
-        d = torch.triangular_solve(b, R.T, upper=False)[0]
+        Q, R = qr(A.transpose(-1,-2))
+        d = torch.triangular_solve(b, R.transpose(-1,-2), upper=False)[0]
         x = torch.matmul(Q, d)
     else:
         # solve least-squares problem
         Q, R = qr(A)
-        d = torch.matmul(Q.T, b)
+        d = torch.matmul(Q.transpose(-1,-2), b)
         x = torch.triangular_solve(d, R)[0]
     return x
 
