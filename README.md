@@ -1,6 +1,6 @@
 # PyTorch Lasso
 
-A PyTorch library for L1-regularized least squares problems. This library is a work in progress; contributions are welcome and appreciated!
+A PyTorch library for L1-regularized least squares (lasso) problems. This library is a work in progress; contributions are welcome and appreciated!
 
 Author: Reuben Feinman (New York University)
 
