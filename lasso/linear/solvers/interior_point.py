@@ -1,9 +1,10 @@
+import warnings
 from torch import Tensor
 import torch
 import torch.nn.functional as F
 from scipy.optimize._trustregion_constr.report import ReportBase
 
-from ..utils import ridge, batch_cholesky_solve
+from ..utils import ridge, lstsq, batch_cholesky_solve
 
 
 class BasicReport(ReportBase):
@@ -27,7 +28,7 @@ def _check_inputs(x, weight, z0):
     return batch_size, input_size, code_size
 
 
-def _general_inverse(x, eps):
+def _general_inverse(x, eps=1e-5):
     #return x.reciprocal().masked_fill(x.abs() < eps, eps)
     #return x.reciprocal().clamp(-1/eps, 1/eps)
     return x.reciprocal().masked_fill(x.abs() < eps, 0)
@@ -65,6 +66,27 @@ def _initialize_params(z0, weight, alpha):
     assert torch.all((-alpha < tmp) & (tmp < alpha))
 
     return z, lmbda, s, weight_pn
+
+
+# def _solve_d_lmbda(weight,z,s,d,ra,rb,rc):
+#     batch_size, input_size = z.size(0), weight.size(0)
+#
+#     # least-squares method
+#     d_half = d.sqrt()
+#     rhs = d_half * (ra - _general_inverse(z) * rc)
+#     rhs = torch.cat([rhs, rb], 1)
+#     M = d_half.unsqueeze(2) * weight.T.unsqueeze(0)
+#     I = torch.eye(input_size, input_size, dtype=d.dtype, device=d.device)
+#     I = I.expand(batch_size, -1, -1)
+#     M = torch.cat([M, I], 1)
+#     d_lmbda = lstsq(rhs.unsqueeze(2), M).squeeze(2)
+#
+#     # woodbury identiy method
+#     M = torch.matmul(weight.T, weight).repeat(batch_size, 1, 1)
+#     M.diagonal(dim1=1, dim2=2).add_(s * _general_inverse(z))
+#     d_lmbda = torch.matmul(rhs, weight)
+#     d_lmbda = batch_cholesky_solve(d_lmbda, M)
+#     d_lmbda = rhs - torch.matmul(d_lmbda, weight.T)
 
 
 def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
@@ -150,13 +172,6 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         M.diagonal(dim1=1, dim2=2).add_(1)  # [B,D,D]
         d_lmbda = batch_cholesky_solve(rhs, M)  # [B,D]
 
-        # TODO: use this alternative d_lmbda solver based on Woodbury identity?
-        #M = torch.matmul(weight.T, weight).repeat(batch_size,1,1)
-        #M.diagonal(dim1=1, dim2=2).add_(s * _general_inverse(z, eps))
-        #d_lmbda = torch.matmul(rhs, weight)
-        #d_lmbda = batch_cholesky_solve(d_lmbda, M)
-        #d_lmbda = rhs - torch.matmul(d_lmbda, weight.T)
-
         # direction for s
         d_s = ra - torch.matmul(d_lmbda, weight)
 
@@ -178,17 +193,18 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         beta_sl.clamp_(None, 1)
 
         # update variables
-        update_z = 0.99 * beta_z * d_z
-        update_lmbda = 0.99 * beta_sl * d_lmbda
-        update_s = 0.99 * beta_sl * d_s
-        z += update_z
-        lmbda += update_lmbda
-        s += update_s
+        z += 0.99 * beta_z * d_z
+        lmbda += 0.99 * beta_sl * d_lmbda
+        s += 0.99 * beta_sl * d_s
         mu *= 1 - torch.min(beta_z, beta_sl).clamp(None, 0.99)
 
         # sanity check: are all variables still >= 0?
-        assert torch.all(z >= 0) and torch.all(s >= 0)
-
+        if not torch.all(z >= 0) and torch.all(s >= 0):
+            # If this happens, it's either a bug or a precision error
+            warnings.warn('Elements of z and/or s have become negative. '
+                          'Clamping them to zero...')
+            z.clamp_(0, None)
+            s.clamp_(0, None)
 
         # -------------------------------
         #     Check stopping criteria
