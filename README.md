@@ -20,7 +20,7 @@ dictionary, losses = dict_learning(data, n_components=50, alpha=0.5, algorithm='
 coeffs = sparse_encode(data, dictionary, alpha=0.2, algorithm='interior-point')
 ```
 
-__Lasso solvers:__ ISTA, GPSR, Interior Point, Iterative Ridge, Coordinate Descent
+__Lasso solvers:__ ISTA, Gradient Projection, Interior Point, Iterative Ridge, Coordinate Descent
 
 ## 1. Overview
 
@@ -57,7 +57,7 @@ There are a variety of lasso solvers for the classical "linear" setting, i.e. th
 The `lasso.linear` module gathers a number of popular algorithms for this setting. The solvers include:
 
 - __ISTA__: Iterative shrinkage thresholding algorithms, including the "fast" variant described in [2]. An option for backtracking line-search is provided. This algorithm is very efficient and produces good results in most cases. It's a great default to use.
-- __GPSR__: The projected gradient method described in [3]. The lasso problem is reformulated as a box-constrained quadratic programming problem and solved by a gradient projection algorithm. At the moment, only the _GPSR-Basic_ variant of the algorithm is offered.
+- __Gradient Projection__: The projected gradient method described in [3]. The lasso problem is reformulated as a box-constrained quadratic programming problem and solved by a gradient projection algorithm. At the moment, only the _GPSR-Basic_ variant of the algorithm is offered.
 - __Interior Point__: The primal-dual interior point method proposed in [4] (also known as _basis pursuit_). The algorithm is summarized nicely in [5], and also in section 2.3 of [1]. These summaries informed the current implementation.
 - __Iterative Ridge__: An iterative algorithm developed in [6] that uses an update rule inspired by ridge regression, along with the approximation <img src="http://latex.codecogs.com/svg.latex?||z||_1&space;\approx&space;||z||_2^2&space;/&space;||z||_1" />. The updates are applied iteratively since the step depends on z (unlike classical ridge). An optional line search can make convergence much faster. Although less efficient than ISTA/CD, this algorithm consistently produces the best results in my evaluations thus far. Runtime on GPU is very reasonable.
 - __Coordinate Descent__: A popular approach for sparse coding developed in [7]; often considered the fastest algorithm for sparse code inference. The current cd implementation is a batched variant of the per-sample CD algorithms offered in scikit-learn. It does not always work as expected; there may be some bugs.
@@ -70,7 +70,7 @@ Many of the classical linear solvers are not applicable to this setting.
 The `lasso.conv2d` module implements a few solvers specialized for the 2D convolution setting, inspired by those discussed above. They are:
 
 - __ISTA__: As described above, but optimized for the conv setting. I've included code to estimate the lipschitz constant of a conv2d operator. This is needed for optimal learning rate selection.
-- __GPSR__: This algorithm works with convolution, but is not yet included by default in the `lasso.conv2d` library. It is coming soon.
+- __Gradient Projection__: This algorithm works with convolution, but is not yet included by default in the `lasso.conv2d` library. It is coming soon.
 
 ### Nonlinear extensions
 
