@@ -188,7 +188,8 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         s_ratio = (-s / d_s).masked_fill_(d_s >= 0, float('inf'))
         beta_sl = s_ratio.min(1, keepdim=True)[0]  # [B,1]
 
-        # include possibility of a full Newton step
+        # if the update direction is positive in all dimensions, use
+        # the standard Newton step (step_size = 1)
         beta_z.clamp_(None, 1)
         beta_sl.clamp_(None, 1)
 
