@@ -90,7 +90,7 @@ def _initialize_params(z0, weight, alpha):
 
 
 def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
-                   tol=1e-8, eps=1e-5, verbose=False):
+                   tol=1e-2, eps=1e-5, verbose=False):
     """Interior point method, non-negative variables with log barrier
 
     Explained in section 2.3 of Mark Schmidt, 2005:
@@ -131,7 +131,6 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
     batch_size, input_size, code_size = _check_inputs(x, weight, z0)
     if z0 is None:
         z0 = ridge(x.T, weight, alpha=alpha).T
-    tol = tol * z0.numel()
 
     # barrier parameter
     mu = barrier_init * x.new_ones(batch_size, 1)  # [B,1]
@@ -212,16 +211,15 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         # -------------------------------
 
         # TODO: seperate convergence checks for each batch entry?
-        z_norm = z.norm()
-        lmbda_norm = lmbda.norm()
-        primal_feas = rb.norm() / (1 + z_norm)
-        dual_feas = ra.norm() / (1 + lmbda_norm)
-        duality_gap = (z*s).sum() / (1 + z_norm * lmbda_norm)
+        z_norm = z.norm(dim=1)
+        lmbda_norm = lmbda.norm(dim=1)
+        prim_feas = torch.mean(rb.norm(dim=1) / (1 + z_norm))
+        dual_feas = torch.mean(ra.norm(dim=1) / (1 + lmbda_norm))
+        gap = torch.mean((z*s).sum(dim=1) / (1 + z_norm * lmbda_norm))
         if verbose:
-            BasicReport.print_iteration(i+1, f(z,lmbda), primal_feas,
-                                        dual_feas, duality_gap)
+            BasicReport.print_iteration(i+1,f(z,lmbda),prim_feas,dual_feas,gap)
 
-        if (primal_feas < tol) and (dual_feas < tol) and (duality_gap < tol):
+        if (prim_feas < tol) and (dual_feas < tol) and (gap < tol):
             success = True
             break
 
