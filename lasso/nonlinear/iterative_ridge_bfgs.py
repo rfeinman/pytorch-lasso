@@ -8,10 +8,12 @@ from torch.optim.lbfgs import _strong_wolfe
 
 Inf = float('inf')
 
+def masked_scatter(trg, mask, src):
+    return trg.masked_scatter(mask, src.masked_select(mask))
 
 @torch.no_grad()
 def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
-                         line_search=False, normp=Inf, maxiter=None,
+                         line_search=True, normp=Inf, maxiter=None,
                          return_losses=False, disp=False):
     """BFGS
 
@@ -37,6 +39,11 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
     """
     assert x0.dim() == 2
     xshape = x0.shape
+    x = x0.detach()
+    eps = torch.finfo(x.dtype).eps
+    if maxiter is None:
+        maxiter = x.size(1) * 200
+
 
     def terminate(warnflag, msg):
         if disp:
@@ -59,21 +66,13 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
         return fval.detach(), grad
 
     def dir_evaluate(x, t, d):
-        # for line search only
+        """used for strong-wolfe line search"""
         x = (x + t * d).reshape(xshape)
         fval, grad = evaluate(x)
         return fval, grad.flatten()
 
-    def outer(u, v):
-        return u.unsqueeze(-1) * v.unsqueeze(-2)
-
-    def inner(u, v):
-        return torch.sum(u*v, 1, keepdim=True)
-
-    x = x0.detach()
-    eps = torch.finfo(x.dtype).eps
-    if maxiter is None:
-        maxiter = x.size(1) * 200
+    outer = lambda u,v: u.unsqueeze(-1) * v.unsqueeze(-2)
+    inner = lambda u,v: torch.sum(u*v, 1, keepdim=True)
 
     # compute initial f(x) and f'(x)
     fval, grad = evaluate(x)
@@ -91,6 +90,8 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
     for k in range(1, maxiter + 1):
         # set the initial step size
         if k == 1:
+            # use sample-specific learning rate for the first step,
+            # unless we're doing a line search.
             t = (lr / grad.abs().sum(1, keepdim=True)).clamp(None, lr)
             if line_search:
                 t = t.mean().item()
@@ -152,15 +153,18 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
 
         # update the BFGS hessian approximation
         rho_inv = inner(y, s)
-        if torch.any(rho_inv == 0):
+        valid = torch.any(rho_inv.abs() > 1e-10, 1, keepdim=True)
+        if not valid.all():
             warnings.warn("Divide-by-zero encountered: rho assumed large")
-        rho = torch.where(rho_inv != 0,
+        rho = torch.where(valid,
                           rho_inv.reciprocal(),
                           torch.full_like(rho_inv, 1000.))
 
-        HssH = torch.bmm(H, torch.bmm(outer(s, s), H.transpose(-1,-2)))  # [B,D,D]
-        sHs = inner(s, torch.bmm(H, s.unsqueeze(-1)).squeeze(-1))  # [B,1]
-        H = H + rho.unsqueeze(-1) * outer(y, y) - HssH / sHs.unsqueeze(-1)
+        HssH = torch.bmm(H, torch.bmm(outer(s, s), H.transpose(-1,-2)))
+        sHs = inner(s, torch.bmm(H, s.unsqueeze(-1)).squeeze(-1))
+        H = masked_scatter(H,
+                           valid.unsqueeze(-1),
+                           H + rho.unsqueeze(-1) * outer(y, y) - HssH / sHs.unsqueeze(-1))
 
     # final sanity check
     if grad_norm.isnan() or fval.isnan() or x.isnan().any():
