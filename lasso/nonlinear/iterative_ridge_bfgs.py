@@ -15,7 +15,7 @@ def masked_scatter(trg, mask, src):
 def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
                          line_search=True, normp=Inf, maxiter=None,
                          return_losses=False, disp=False):
-    """BFGS
+    """A BFGS analogue to Iterative Ridge for nonlinear reconstruction terms.
 
     Parameters
     ----------
