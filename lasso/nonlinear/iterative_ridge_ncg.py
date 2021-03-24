@@ -139,31 +139,27 @@ def iterative_ridge_ncg(f, x0, alpha=1.0, lambd=1e-4, lr=1.0, xtol=1e-5,
     ncg = 0   # number of cg iterations
     k = 0
     status = x.new_full((x.size(0), 1), 1, dtype=torch.long)
-    cg_fail = x.new_zeros((x.size(0), 1), dtype=torch.bool)
     delta_x = torch.full_like(x, xtol)
-    d = torch.zeros_like(x)
 
     if disp > 1:
         print('initial loss: %0.4f' % Fval)
 
     # begin optimization loop
     for k in range(1, maxiter + 1):
-        stop = status != 1
+        if not torch.any(status == 1):
+            break
 
         # Newton direction (computed with CG)
         d, cg_iters, cg_fail = \
             _ncg_step(x, gradF, f, alpha, cg_options, twice_diffable, cg_batch)
 
         # check for CG failure
-        stop = stop | cg_fail
-        status.masked_fill_(stop & (status == 1), 2)
-        if stop.all():
-            break
+        status.masked_fill_(torch.logical_and(cg_fail, status==1), 2)
 
         # compute update.
         if line_search is not None:
-            gtd = torch.sum(gradF * d)
             if line_search == 'strong_wolfe':
+                gtd = torch.sum(gradF * d)
                 _, _, t, ls_nevals = \
                     _strong_wolfe(dir_eval_flat, x.flatten(), lr, d.flatten(),
                                   Fval, gradF.flatten(), gtd)
@@ -176,12 +172,14 @@ def iterative_ridge_ncg(f, x0, alpha=1.0, lambd=1e-4, lr=1.0, xtol=1e-5,
             nfev += ls_nevals
         else:
             dx = lr * d
-        stop = stop | (dx.isnan() | dx.isinf()).any(1, keepdim=True)
-        status.masked_fill_(stop & (status == 1), 3)
+
+        infinite = torch.logical_or(dx.isnan(), dx.isinf()).any(1, keepdim=True)
+        status.masked_fill_(torch.logical_and(infinite, status==1), 3)
 
         # update variables
-        delta_x = torch.where(stop, delta_x, dx)
-        x = torch.where(stop, x, x + dx)
+        do_update = status == 1
+        delta_x = torch.where(do_update, dx, delta_x)
+        x = torch.where(do_update, x + dx, x)
         Fval, gradF = eval(x)
         nfev += 1
         ncg += cg_iters
@@ -189,11 +187,11 @@ def iterative_ridge_ncg(f, x0, alpha=1.0, lambd=1e-4, lr=1.0, xtol=1e-5,
         if disp > 1:
             print('iter %3d - loss: %0.4f' % (k, Fval))
 
-        stop = stop | (delta_x.abs().mean(1, keepdim=True) <= xtol) \
-                    | (gradF.norm(normp, 1, keepdim=True) <= gtol)
-        status.masked_fill_(stop & (status == 1), 0)
-        if stop.all():
-            break
+        converged = torch.logical_or(
+            (delta_x.abs().mean(1, keepdim=True) <= xtol),
+            (gradF.norm(normp, 1, keepdim=True) <= gtol))
+        status.masked_fill_(torch.logical_and(converged, status==1), 0)
+
 
     if disp:
         print("    Current function value: %f" % Fval)
