@@ -73,17 +73,9 @@ def backtracking(dir_evaluate, x, g, t, d, fval, tol=0.1, decay=0.98,
 @torch.no_grad()
 def iterative_ridge_ncg(f, x0, alpha=1.0, lambd=1e-4, lr=1.0, xtol=1e-5,
                         gtol=1e-5, normp=Inf, maxiter=None, cg_options=None,
-                        twice_diffable=True, line_search=None, disp=0):
+                        stop_on_cgfail=True, twice_diffable=True,
+                        line_search=None, disp=0):
     """Newton Conjugate Gradient (CG)
-
-    This version uses a "batch" variant that can be thought of as solving
-    a single optimization problem for each entry in the batch
-
-    Status messages:
-        0: Succesful termination
-        1: CG failure
-        2: NaN or Inf encountered
-        3: Maximum iterations reached
 
     Parameters
     ----------
@@ -124,7 +116,7 @@ def iterative_ridge_ncg(f, x0, alpha=1.0, lambd=1e-4, lr=1.0, xtol=1e-5,
         maxiter = numel * 200
     if cg_options is None:
         cg_options = {}
-    cg_options.setdefault('maxiter', numel * 20)
+    cg_options.setdefault('maxiter', 100)
     cg_options.setdefault('rtol', 1.)
     if 'batch' in cg_options:
         cg_batch = cg_options['batch']
@@ -154,7 +146,8 @@ def iterative_ridge_ncg(f, x0, alpha=1.0, lambd=1e-4, lr=1.0, xtol=1e-5,
             _ncg_step(x, gradF, f, alpha, cg_options, twice_diffable, cg_batch)
 
         # check for CG failure
-        status.masked_fill_(torch.logical_and(cg_fail, status==1), 2)
+        if stop_on_cgfail:
+            status.masked_fill_(torch.logical_and(cg_fail, status==1), 2)
 
         # compute update.
         if line_search is not None:
@@ -173,7 +166,7 @@ def iterative_ridge_ncg(f, x0, alpha=1.0, lambd=1e-4, lr=1.0, xtol=1e-5,
         else:
             dx = lr * d
 
-        infinite = torch.logical_or(dx.isnan(), dx.isinf()).any(1, keepdim=True)
+        infinite = dx.isfinite().logical_not().any(1, keepdim=True)
         status.masked_fill_(torch.logical_and(infinite, status==1), 3)
 
         # update variables
