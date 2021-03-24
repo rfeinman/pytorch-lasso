@@ -16,7 +16,7 @@ def pinv(x, eps=1e-8):
 
 
 @torch.no_grad()
-def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-5,
+def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-4,
                          line_search=True, normp=Inf, maxiter=None,
                          return_losses=False, disp=False):
     """A BFGS analogue to Iterative Ridge for nonlinear reconstruction terms.
@@ -113,15 +113,14 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-5,
 
         # compute newton direction
         if k == 1:
-            # use -grad_F for the first step
+            # use - grad_F for the first step
             d = gradF.neg()
         else:
-            # use - H^{-1} @ grad_f for remaining steps
+            # use - H^{-1} @ grad_F for remaining steps
             Hk = H
             if alpha > 0:
-                Hk = Hk + torch.diag_embed(2 * alpha * pinv(x.abs()))
-            # TODO: use gradF.neg() instead?
-            d = batch_cholesky_solve(grad.neg(), Hk)
+                Hk = Hk + torch.diag_embed(alpha * pinv(x.abs()))
+            d = batch_cholesky_solve(gradF.neg(), Hk)
 
         # optional strong-wolfe line search
         if line_search:
