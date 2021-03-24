@@ -11,16 +11,12 @@ from ..linear.utils import batch_cholesky_solve
 Inf = float('inf')
 
 
-def masked_scatter(trg, mask, src):
-    return trg.masked_scatter(mask, src.masked_select(mask))
-
-
 def pinv(x, eps=1e-8):
     return x.reciprocal().masked_fill(x < eps, 0)
 
 
 @torch.no_grad()
-def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
+def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-5,
                          line_search=True, normp=Inf, maxiter=None,
                          return_losses=False, disp=False):
     """A BFGS analogue to Iterative Ridge for nonlinear reconstruction terms.
@@ -55,10 +51,10 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
     def terminate(warnflag, msg):
         if disp:
             print(msg)
-            print("         Current function value: %f" % fval)
+            print("         Current function value: %f" % Fval)
             print("         Iterations: %d" % k)
             print("         Function evaluations: %d" % nfev)
-        result = OptimizeResult(fun=fval, jac=grad, nfev=nfev,
+        result = OptimizeResult(fun=Fval, jac=grad, nfev=nfev,
                                 status=warnflag, success=(warnflag==0),
                                 message=msg, x=x, nit=k)
         if return_losses:
@@ -70,24 +66,35 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
         with torch.enable_grad():
             fval = f(x)
         grad, = autograd.grad(fval, x)
-        return fval.detach(), grad
+        # add tikhonov regularization (still on f)
+        if lambd > 0:
+            fval = fval + 0.5 * lambd * x.pow(2).sum()
+            grad = grad + lambd * x
+        # add L1 regularization (now we are on F)
+        if alpha == 0:
+            Fval, gradF = fval, grad
+        else:
+            Fval = fval + alpha * x.abs().sum()
+            gradF = grad + alpha * x.sign()
+        return fval.detach(), Fval.detach(), grad, gradF
 
     def dir_evaluate(x, t, d):
         """used for strong-wolfe line search"""
         x = (x + t * d).reshape(xshape)
-        fval, grad = evaluate(x)
-        return fval, grad.flatten()
+        fval, Fval, grad, gradF = evaluate(x)
+        return Fval, gradF.flatten()
 
     outer = lambda u,v: u.unsqueeze(-1) * v.unsqueeze(-2)
     inner = lambda u,v: torch.sum(u*v, 1, keepdim=True)
 
     # compute initial f(x) and f'(x)
-    fval, grad = evaluate(x)
+    _, Fval, grad, gradF = evaluate(x)
+    gradF_norm = gradF.norm(normp)
     nfev = 1
     if disp > 1:
-        print('initial loss: %0.4f' % fval)
+        print('initial loss: %0.4f' % Fval)
     if return_losses:
-        losses = [fval.item()]
+        losses = [Fval.item()]
 
     # initialize BFGS
     H = torch.diag_embed(torch.ones_like(x))  # [B,D,D]
@@ -98,7 +105,7 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
         if k == 1:
             # use sample-specific learning rate for the first step,
             # unless we're doing a line search.
-            t = (lr / grad.abs().sum(1, keepdim=True)).clamp(None, lr)
+            t = (lr / gradF.abs().sum(1, keepdim=True)).clamp(None, lr)
             if line_search:
                 t = t.mean().item()
         else:
@@ -106,50 +113,52 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
 
         # compute newton direction
         if k == 1:
-            d = grad.neg()
-            if alpha > 0:
-                d -= alpha * x.sign()
+            # use -grad_F for the first step
+            d = gradF.neg()
         else:
+            # use - H^{-1} @ grad_f for remaining steps
             Hk = H
             if alpha > 0:
                 Hk = Hk + torch.diag_embed(2 * alpha * pinv(x.abs()))
+            # TODO: use gradF.neg() instead?
             d = batch_cholesky_solve(grad.neg(), Hk)
 
-        # update variables (with optional strong-wolfe line search)
+        # optional strong-wolfe line search
         if line_search:
-            gtd = torch.sum(grad * d)
-            fval, grad_new, t, ls_nevals = \
-                _strong_wolfe(dir_evaluate, x.flatten(), t, d.flatten(), fval,
-                              grad.flatten(), gtd)
-            x_new = x + t * d
-            grad_new = grad_new.reshape(xshape)
+            gtd = torch.sum(gradF * d)
+            _, _, t, ls_nevals = \
+                _strong_wolfe(dir_evaluate, x.flatten(), t, d.flatten(), Fval,
+                              gradF.flatten(), gtd)
             nfev += ls_nevals
-        else:
-            x_new = x + t * d
-            fval, grad_new = evaluate(x_new)
-            nfev += 1
+
+        # update variables and gradient
+        x_new = x + t * d
+        _, Fval_new, grad_new, gradF_new = evaluate(x_new)
+        nfev += 1
 
         if disp > 1:
-            print('iter %3d - loss: %0.4f' % (k, fval))
+            print('iter %3d - loss: %0.4f' % (k, Fval_new))
         if return_losses:
-            losses.append(fval.item())
+            losses.append(Fval_new.item())
 
         # update \delta x and \delta f'(x)
         s = x_new - x
         y = grad_new - grad
+        # now update current state
         x = x_new
         grad = grad_new
+        Fval = Fval_new
 
         # stopping check
-        grad_norm = grad.norm(normp)
-        if grad_norm <= gtol:
+        gradF_norm = gradF.norm(normp)
+        if gradF_norm <= gtol:
             return terminate(0, _status_message['success'])
-        if fval.isinf() or fval.isnan():
+        if Fval.isinf() or Fval.isnan():
             return terminate(2, _status_message['pr_loss'])
 
         # update the BFGS hessian approximation
         rho_inv = inner(y, s)
-        valid = torch.any(rho_inv.abs() > 1e-10, 1, keepdim=True)
+        valid = rho_inv.abs() > 1e-10
         if not valid.all():
             warnings.warn("Divide-by-zero encountered: rho assumed large")
         rho = torch.where(valid,
@@ -158,12 +167,12 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
 
         HssH = torch.bmm(H, torch.bmm(outer(s, s), H.transpose(-1,-2)))
         sHs = inner(s, torch.bmm(H, s.unsqueeze(-1)).squeeze(-1))
-        H = masked_scatter(H,
-                           valid.unsqueeze(-1),
-                           H + rho.unsqueeze(-1) * outer(y, y) - HssH / sHs.unsqueeze(-1))
+        H = torch.where(valid.unsqueeze(-1),
+                        H + rho.unsqueeze(-1) * outer(y, y) - HssH / sHs.unsqueeze(-1),
+                        H)
 
     # final sanity check
-    if grad_norm.isnan() or fval.isnan() or x.isnan().any():
+    if gradF_norm.isnan() or Fval.isnan() or x.isnan().any():
         return terminate(3, _status_message['nan'])
 
     # if we get to the end, the maximum num. iterations was reached
