@@ -6,10 +6,18 @@ import torch
 import torch.autograd as autograd
 from torch.optim.lbfgs import _strong_wolfe
 
+from ..linear.utils import batch_cholesky_solve
+
 Inf = float('inf')
+
 
 def masked_scatter(trg, mask, src):
     return trg.masked_scatter(mask, src.masked_select(mask))
+
+
+def pinv(x, eps=1e-8):
+    return x.reciprocal().masked_fill(x < eps, 0)
+
 
 @torch.no_grad()
 def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
@@ -40,7 +48,6 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
     assert x0.dim() == 2
     xshape = x0.shape
     x = x0.detach()
-    eps = torch.finfo(x.dtype).eps
     if maxiter is None:
         maxiter = x.size(1) * 200
 
@@ -83,8 +90,7 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
         losses = [fval.item()]
 
     # initialize BFGS
-    I = torch.diag_embed(torch.ones_like(x))  # [B,D,D]
-    H = I
+    H = torch.diag_embed(torch.ones_like(x))  # [B,D,D]
 
     # BFGS iterations
     for k in range(1, maxiter + 1):
@@ -100,24 +106,14 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0,
 
         # compute newton direction
         if k == 1:
-            d = - grad
+            d = grad.neg()
+            if alpha > 0:
+                d -= alpha * x.sign()
         else:
-            # TODO: factor in the L1 penalty to hessian diagonal
-            #xmag = x.abs()
-            #xmag_inv = xmag.reciprocal().masked_fill(xmag < eps, 0)
-            #Hk = H + 2 * alpha * torch.diag_embed(xmag_inv)
             Hk = H
-
-            d = - grad.unsqueeze(-1)
-            try:
-                L = torch.cholesky(Hk)
-                d = torch.cholesky_solve(d, L).squeeze(-1)
-            except RuntimeError as exc:
-                if 'singular' not in exc.args[0]:
-                    raise
-                warnings.warn('Cholesky factorization failed. Reverting to LU '
-                              'decomposition...')
-                d = torch.solve(d, Hk)[0].squeeze(-1)
+            if alpha > 0:
+                Hk = Hk + torch.diag_embed(2 * alpha * pinv(x.abs()))
+            d = batch_cholesky_solve(grad.neg(), Hk)
 
         # update variables (with optional strong-wolfe line search)
         if line_search:
