@@ -10,7 +10,8 @@ _status_messages = {
 }
 
 
-def conjgrad(b, Adot, dot, maxiter=None, tol=1e-10, rtol=1e-1, verbose=False):
+def conjgrad(b, Adot, dot, maxiter=None, tol=1e-10, rtol=1e-1, verbose=0):
+    verbose = int(verbose)
     if maxiter is None:
         maxiter = 20 * (b.numel() if b.dim() == 1 else b[0].numel())
     b_abs = b.abs().sum()
@@ -50,7 +51,7 @@ def conjgrad(b, Adot, dot, maxiter=None, tol=1e-10, rtol=1e-1, verbose=False):
             return terminate(0)
         p = - r + (rs_new / rs_old) * p
         rs_old = rs_new
-        if verbose:
+        if verbose > 1:
             print('iter: %i - rs: %0.4f' % (i, rs_new.sum().sqrt()))
 
     return terminate(4)
