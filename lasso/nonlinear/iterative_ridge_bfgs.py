@@ -84,9 +84,6 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-4,
         fval, Fval, grad, gradF = evaluate(x)
         return Fval, gradF.flatten()
 
-    outer = lambda u,v: u.unsqueeze(-1) * v.unsqueeze(-2)
-    inner = lambda u,v: torch.sum(u*v, 1, keepdim=True)
-
     # compute initial f(x) and f'(x)
     _, Fval, grad, gradF = evaluate(x)
     gradF_norm = gradF.norm(normp)
@@ -156,7 +153,7 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-4,
             return terminate(2, _status_message['pr_loss'])
 
         # update the BFGS hessian approximation
-        rho_inv = inner(y, s)
+        rho_inv = y.mul(s).sum(1, keepdim=True)
         valid = rho_inv.abs() > 1e-10
         if not valid.all():
             warnings.warn("Divide-by-zero encountered: rho assumed large")
@@ -164,11 +161,15 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-4,
                           rho_inv.reciprocal(),
                           torch.full_like(rho_inv, 1000.))
 
-        HssH = torch.bmm(H, torch.bmm(outer(s, s), H.transpose(-1,-2)))
-        sHs = inner(s, torch.bmm(H, s.unsqueeze(-1)).squeeze(-1))
-        H = torch.where(valid.unsqueeze(-1),
-                        H + rho.unsqueeze(-1) * outer(y, y) - HssH / sHs.unsqueeze(-1),
-                        H)
+        Hs = torch.bmm(H, s.unsqueeze(-1))
+        H = torch.where(
+            valid.unsqueeze(-1),
+            torch.addcdiv(
+                torch.baddbmm(H, (rho*y).unsqueeze(-1), y.unsqueeze(-2)),  # H - rho * y @ y^T
+                torch.bmm(Hs, Hs.transpose(-1,-2)),  # Hs @ (Hs)^T
+                torch.bmm(s.unsqueeze(-2), Hs),  # s^T @ Hs
+                value=-1),
+            H)
 
     # final sanity check
     if gradF_norm.isnan() or Fval.isnan() or x.isnan().any():
