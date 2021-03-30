@@ -2,6 +2,16 @@ import warnings
 import math
 import torch
 import torch.nn.functional as F
+from scipy.sparse.linalg import eigsh
+
+
+def _lipschitz_constant(W):
+    #L = torch.linalg.norm(W, ord=2) ** 2
+    WtW = torch.matmul(W.t(), W)
+    #L = torch.linalg.eigvalsh(WtW)[-1]
+    L = eigsh(WtW.detach().cpu().numpy(), k=1, which='LM',
+              return_eigenvectors=False).item()
+    return L
 
 
 def backtracking(z, x, weight, alpha, lr0, eta=1.5, maxiter=1000, verbose=False):
@@ -47,9 +57,9 @@ def backtracking(z, x, weight, alpha, lr0, eta=1.5, maxiter=1000, verbose=False)
 def ista(x, z0, weight, alpha=1.0, fast=True, lr='auto', maxiter=10,
          tol=1e-5, backtrack=False, eta_backtrack=1.5, verbose=False):
     if lr == 'auto':
-        # set lr based on the maximum eigenvalue of W^T @ W; in other
-        # words, the squared (matrix) 2-norm of W
-        L = torch.linalg.norm(weight, ord=2) ** 2
+        # set lr based on the maximum eigenvalue of W^T @ W; i.e. the
+        # Lipschitz constant of \grad f(z), where f(z) = ||Wz - x||^2
+        L = _lipschitz_constant(weight)
         lr = 1 / L
     tol = z0.numel() * tol
 
