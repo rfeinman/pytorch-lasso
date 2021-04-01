@@ -29,10 +29,10 @@ def ista_nonlinear(x, z0, decoder, alpha=1.0, fast=True, maxiter=10, lr=0.01,
     tol = z0.numel() * tol
 
     # derivative of the residual sum-of-squares (rss) objective
-    @torch.enable_grad()
     def rss_grad_fn(zk):
         zk = zk.detach().requires_grad_(True)
-        loss = 0.5 * (x - decoder(zk)).pow(2).sum()
+        with torch.enable_grad():
+            loss = 0.5 * (x - decoder(zk)).pow(2).sum()
         grad, = torch.autograd.grad(loss, zk)
         return grad
 
