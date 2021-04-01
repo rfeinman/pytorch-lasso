@@ -154,22 +154,20 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, gtol=1e-5, lr=1.0, lambd=1e-4,
 
         # update the BFGS hessian approximation
         rho_inv = y.mul(s).sum(1, keepdim=True)
-        valid = rho_inv.abs() > 1e-10
-        if not valid.all():
-            warnings.warn("Divide-by-zero encountered: rho assumed large")
-        rho = torch.where(valid,
-                          rho_inv.reciprocal(),
-                          torch.full_like(rho_inv, 1000.))
+        invalid = rho_inv.abs().le(1e-10)
+        rho = rho_inv.reciprocal().masked_fill(invalid, 1000.)
 
         Hs = torch.bmm(H, s.unsqueeze(-1))
         H = torch.where(
-            valid.unsqueeze(-1),
+            invalid.unsqueeze(-1),
+            H,
             torch.addcdiv(
                 torch.baddbmm(H, (rho*y).unsqueeze(-1), y.unsqueeze(-2)),  # H - rho * y @ y^T
                 torch.bmm(Hs, Hs.transpose(-1,-2)),  # Hs @ (Hs)^T
                 torch.bmm(s.unsqueeze(-2), Hs),  # s^T @ Hs
-                value=-1),
-            H)
+                value=-1
+            )
+        )
 
     # final sanity check
     if gradF_norm.isnan() or Fval.isnan() or x.isnan().any():
