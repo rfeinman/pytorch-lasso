@@ -60,7 +60,7 @@ def backtracking(dir_evaluate, x, g, t, d, fval, tol=0.1, decay=0.98,
     for i in range(maxiter):
         x_new, fval_new = dir_evaluate(x, t, d)
         df = torch.sum(g * (x_new - x), 1, keepdim=True)
-        stop = stop | (fval_new <= fval - tol * df)
+        stop = stop | (fval_new <= fval + tol * df)
         t = torch.where(stop, t, t * decay)
         if stop.all() or (t < 1e-4).any():
             break
