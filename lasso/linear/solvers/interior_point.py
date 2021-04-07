@@ -6,6 +6,8 @@ from scipy.optimize._trustregion_constr.report import ReportBase
 
 from ..utils import ridge, lstsq, batch_cholesky_solve
 
+Inf = float('inf')
+
 
 class BasicReport(ReportBase):
     COLUMN_NAMES = ["niter", "obj func", "prim feas", "dual feas", "gap"]
@@ -182,10 +184,8 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         #     Variable updates
         # --------------------------
         # step sizes
-        z_ratio = (-z / d_z).masked_fill_(d_z >= 0, float('inf'))
-        beta_z = z_ratio.min(1, keepdim=True)[0]  # [B,1]
-        s_ratio = (-s / d_s).masked_fill_(d_s >= 0, float('inf'))
-        beta_sl = s_ratio.min(1, keepdim=True)[0]  # [B,1]
+        beta_z = (-z/d_z).masked_fill(d_z >= 0, Inf).min(1, keepdim=True)[0]  # [B,1]
+        beta_sl = (-s/d_s).masked_fill(d_s >= 0, Inf).min(1, keepdim=True)[0]  # [B,1]
 
         # if the update direction is positive in all dimensions, use
         # the standard Newton step (step_size = 1)
