@@ -5,11 +5,11 @@ from scipy import optimize
 import numpy as np
 import torch
 
-__all__ = ['scipy_constr', 'scipy_constr_bound', 'scipy_inference']
+__all__ = ['scipy_inference']
 
 
-def scipy_constr(
-        x, weight, z0=None, method='slsqp', rss_lim=1e-3,
+def _scipy_constr(
+        x, weight, z0=None, method='slsqp', rss_lim=0.1,
         tol=None, **options):
     method = method.lower()
     assert method in ['trust-constr', 'slsqp', 'cobyla']
@@ -59,8 +59,8 @@ def scipy_constr(
     return zf
 
 
-def scipy_constr_bound(
-        x, weight, z0=None, method='slsqp', rss_lim=1e-3,
+def _scipy_constr_bound(
+        x, weight, z0=None, method='slsqp', rss_lim=0.1,
         tol=None, **options):
     method = method.lower()
     assert method in ['trust-constr', 'slsqp']
@@ -132,13 +132,15 @@ def _check_input(x):
     return x
 
 
-def scipy_inference(x, weight, z0=None, bound=True, method='slsqp', **kwargs):
+def scipy_inference(
+        x, weight, z0=None, bound=True, method='slsqp', rss_lim=0.1,
+        tol=None, **options):
     if bound:
         assert method in ['trust-constr', 'slsqp']
-        inference_fn = scipy_constr_bound
+        inference_fn = _scipy_constr_bound
     else:
         assert method in ['trust-constr', 'slsqp', 'cobyla']
-        inference_fn = scipy_constr
+        inference_fn = _scipy_constr
 
     # convert torch tensors to numpy arrays
     is_tensor = torch.is_tensor(x)
@@ -152,7 +154,8 @@ def scipy_inference(x, weight, z0=None, bound=True, method='slsqp', **kwargs):
 
     # single-input case
     if x.ndim == 1:
-        return inference_fn(x, weight, z0, method=method, **kwargs)
+        return inference_fn(x, weight, z0, method=method, rss_lim=rss_lim,
+                            tol=tol, **options)
 
     # batch case
     assert x.ndim == 2
@@ -162,7 +165,8 @@ def scipy_inference(x, weight, z0=None, bound=True, method='slsqp', **kwargs):
     p = mp.Pool()
     try:
         z = p.starmap(
-            partial(inference_fn, method=method, **kwargs),
+            partial(inference_fn, method=method, rss_lim=rss_lim,
+                    tol=tol, **options),
             [(x[i].copy(), weight.copy(), z0 if z0 is None else z0[i].copy())
              for i in range(x.shape[0])]
         )
