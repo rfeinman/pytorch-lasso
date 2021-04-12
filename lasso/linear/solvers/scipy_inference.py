@@ -9,7 +9,7 @@ import torch
 __all__ = ['scipy_inference']
 
 
-def _scipy_constr(
+def _solve_constr(
         x, weight, z0=None, method='trust-constr', rss_lim=0.1,
         tol=None, **options):
     method = method.lower()
@@ -60,7 +60,7 @@ def _scipy_constr(
     return zf
 
 
-def _scipy_constr_bound(
+def _solve_constr_bound(
         x, weight, z0=None, method='trust-constr', rss_lim=0.1,
         tol=None, **options):
     method = method.lower()
@@ -132,7 +132,7 @@ def _scipy_constr_bound(
     return zf
 
 
-def _scipy_bound(
+def _solve_bound(
         x, weight, z0=None, method='trust-constr', alpha=1.0,
         tol=None, **options):
     method = method.lower()
@@ -214,17 +214,17 @@ def scipy_inference(
     if constr:
         if bound:
             assert method in ['trust-constr', 'slsqp']
-            inference_fn = _scipy_constr_bound
+            inference_fn = _solve_constr_bound
         else:
             assert method in ['trust-constr', 'slsqp', 'cobyla']
-            inference_fn = _scipy_constr
+            inference_fn = _solve_constr
         options['rss_lim'] = rss_lim
     else:
         if not bound:
             raise NotImplementedError('unbounded & unconstrained optimizer not '
                                       'yet implemented.')
         assert method in ['l-bfgs-b', 'tnc', 'slsqp', 'powell', 'trust-constr']
-        inference_fn = _scipy_bound
+        inference_fn = _solve_bound
         options['alpha'] = alpha
 
     # convert torch tensors to numpy arrays
