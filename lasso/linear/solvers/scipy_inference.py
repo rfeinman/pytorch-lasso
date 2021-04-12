@@ -10,7 +10,7 @@ __all__ = ['scipy_inference']
 
 
 def _scipy_constr(
-        x, weight, z0=None, method='slsqp', rss_lim=0.1,
+        x, weight, z0=None, method='trust-constr', rss_lim=0.1,
         tol=None, **options):
     method = method.lower()
     assert method in ['trust-constr', 'slsqp', 'cobyla']
@@ -61,7 +61,7 @@ def _scipy_constr(
 
 
 def _scipy_constr_bound(
-        x, weight, z0=None, method='slsqp', rss_lim=0.1,
+        x, weight, z0=None, method='trust-constr', rss_lim=0.1,
         tol=None, **options):
     method = method.lower()
     assert method in ['trust-constr', 'slsqp']
@@ -132,6 +132,68 @@ def _scipy_constr_bound(
     return zf
 
 
+def _scipy_bound(
+        x, weight, z0=None, method='trust-constr', alpha=1.0,
+        tol=None, **options):
+    method = method.lower()
+    assert method in ['l-bfgs-b', 'tnc', 'slsqp', 'powell', 'trust-constr']
+    assert x.ndim == 1
+    assert weight.ndim == 2
+    assert weight.shape[0] == x.shape[0]
+    if z0 is None:
+        z0 = np.linalg.lstsq(weight, x[:,None], rcond=None)[0][:,0]
+    assert z0.ndim == 1
+
+    # store batch_size and code_size
+    n_components = z0.shape[0]
+
+    # expand pos/neg
+    z0 = np.concatenate([np.maximum(z0, 0), np.maximum(-z0, 0)])
+    def weight_dot(v):
+        return weight.dot(v[:n_components]) - weight.dot(v[n_components:])
+    def weightT_dot(v):
+        Wtv = np.zeros(2*n_components)
+        Wtv[:n_components] = weight.T.dot(v)
+        Wtv[n_components:] = -Wtv[:n_components]
+        return Wtv
+
+    # objective fun
+    jac = None
+    if method == 'powell':
+        def f(z):
+            resid = weight_dot(z) - x
+            fval = 0.5 * np.sum(resid**2) + alpha * np.sum(z)
+            return fval
+    else:
+        jac = True
+        def f(z):
+            resid = weight_dot(z) - x
+            fval = 0.5 * np.sum(resid**2) + alpha * np.sum(z)
+            jac = weightT_dot(resid) + np.full_like(z, alpha)
+            return fval, jac
+
+    # hessian
+    hessp = None
+    if method == 'trust-constr':
+        H = weight.T @ weight
+        def hessp(x, p):
+            Hp = np.zeros_like(p)
+            Hp[:n_components] = H.dot(p[:n_components]) - H.dot(p[n_components:])
+            Hp[n_components:] = -Hp[:n_components]
+            return Hp
+
+    # bounds
+    bounds = optimize.Bounds(np.zeros(z0.size), np.full(z0.size, np.inf))
+
+    res = optimize.minimize(
+        f, z0.flatten(), method=method, jac=jac, hessp=hessp,
+        bounds=bounds, tol=tol, options=options)
+
+    zf = res.x[:n_components] - res.x[n_components:]
+
+    return zf
+
+
 # ===================================
 #  batch mode (with multiprocessing)
 # ===================================
@@ -147,14 +209,23 @@ def _check_input(x):
 
 
 def scipy_inference(
-        x, weight, z0=None, bound=True, method='slsqp', rss_lim=0.1,
-        tol=None, **options):
-    if bound:
-        assert method in ['trust-constr', 'slsqp']
-        inference_fn = _scipy_constr_bound
+        x, weight, z0=None, constr=True, bound=True, method='trust-constr',
+        alpha=1.0, rss_lim=0.1, tol=None, **options):
+    if constr:
+        if bound:
+            assert method in ['trust-constr', 'slsqp']
+            inference_fn = _scipy_constr_bound
+        else:
+            assert method in ['trust-constr', 'slsqp', 'cobyla']
+            inference_fn = _scipy_constr
+        options['rss_lim'] = rss_lim
     else:
-        assert method in ['trust-constr', 'slsqp', 'cobyla']
-        inference_fn = _scipy_constr
+        if not bound:
+            raise NotImplementedError('unbounded & unconstrained optimizer not '
+                                      'yet implemented.')
+        assert method in ['l-bfgs-b', 'tnc', 'slsqp', 'powell', 'trust-constr']
+        inference_fn = _scipy_bound
+        options['alpha'] = alpha
 
     # convert torch tensors to numpy arrays
     is_tensor = torch.is_tensor(x)
@@ -168,8 +239,7 @@ def scipy_inference(
 
     # single-input case
     if x.ndim == 1:
-        return inference_fn(x, weight, z0, method=method, rss_lim=rss_lim,
-                            tol=tol, **options)
+        return inference_fn(x, weight, z0, method=method, tol=tol, **options)
 
     # batch case
     assert x.ndim == 2
@@ -179,8 +249,7 @@ def scipy_inference(
     p = mp.Pool()
     try:
         z = p.starmap(
-            partial(inference_fn, method=method, rss_lim=rss_lim,
-                    tol=tol, **options),
+            partial(inference_fn, method=method, tol=tol, **options),
             [(x[i].copy(), weight.copy(), z0 if z0 is None else z0[i].copy())
              for i in range(x.shape[0])]
         )
