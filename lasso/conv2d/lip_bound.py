@@ -1,6 +1,28 @@
 import math
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from scipy.sparse import linalg
+
+
+@torch.no_grad()
+def lipschitz_constant(kernel, imsize, sqrt=False, **kwargs):
+    assert len(imsize) == 3
+    dim = imsize[0] * imsize[1] * imsize[2]
+
+    def matvec(v):
+        v = torch.tensor(v, dtype=kernel.dtype, device=kernel.device)
+        v = v.view(1, *imsize)
+        v = F.conv2d(v, kernel, **kwargs)
+        v = F.conv_transpose2d(v, kernel, **kwargs)
+        return v.view(-1).cpu().numpy()
+
+    conv = linalg.LinearOperator((dim, dim), matvec=matvec)
+    eig = linalg.eigsh(conv, k=1, which='LM', return_eigenvectors=False).item()
+    if sqrt:
+        eig = math.sqrt(eig)
+
+    return eig
 
 
 class LipBoundConv2d(nn.Module):
