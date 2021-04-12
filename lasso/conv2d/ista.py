@@ -1,7 +1,7 @@
 import math
 import torch.nn.functional as F
 
-from .lip_bound import lip_bound_conv2d
+from .lip_const import lip_bound_conv2d
 
 
 def ista_conv2d(x, z0, weight, alpha=1.0, stride=1, padding=0, fast=True,
