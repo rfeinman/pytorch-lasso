@@ -245,12 +245,14 @@ def scipy_inference(
     assert x.ndim == 2
     if z0 is not None:
         assert z0.shape[0] == x.shape[0]
+    else:
+        z0 = np.linalg.lstsq(weight, x.T, rcond=None)[0].T
 
     p = mp.Pool()
     try:
         z = p.starmap(
             partial(inference_fn, method=method, tol=tol, **options),
-            [(x[i].copy(), weight.copy(), z0 if z0 is None else z0[i].copy())
+            [(x[i].copy(), weight.copy(), z0[i].copy())
              for i in range(x.shape[0])]
         )
         p.close()
