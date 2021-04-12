@@ -2,6 +2,7 @@ import warnings
 import multiprocessing as mp
 from functools import partial
 from scipy import optimize
+from scipy.sparse.linalg import LinearOperator
 import numpy as np
 import torch
 
@@ -76,7 +77,13 @@ def _scipy_constr_bound(
 
     # expand pos/neg
     z0 = np.concatenate([np.maximum(z0, 0), np.maximum(-z0, 0)])
-    weight = np.concatenate([weight, -weight], axis=1)
+    def weight_dot(v):
+        return weight.dot(v[:n_components]) - weight.dot(v[n_components:])
+    def weightT_dot(v):
+        Wtv = np.zeros(2*n_components)
+        Wtv[:n_components] = weight.T.dot(v)
+        Wtv[n_components:] = -Wtv[:n_components]
+        return Wtv
 
     # objective
     f = lambda z: np.sum(z)
@@ -89,13 +96,20 @@ def _scipy_constr_bound(
 
     # constraints
     if method == 'trust-constr':
-        constr_hess_ = weight.T @ weight
+        H = weight.T @ weight
+        def constr_hess(x, v):
+            def matvec(p):
+                Hp = np.zeros_like(p)
+                Hp[:n_components] = H.dot(p[:n_components]) - H.dot(p[n_components:])
+                Hp[n_components:] = -Hp[:n_components]
+                return v[0] * Hp
+            return LinearOperator((2*n_components, 2*n_components), matvec=matvec)
         constr = optimize.NonlinearConstraint(
-            fun=lambda z: 0.5 * np.sum((weight.dot(z) - x)**2),
+            fun=lambda z: 0.5 * np.sum((weight_dot(z) - x)**2),
             lb=-np.inf,
             ub=rss_lim,
-            jac=lambda z: weight.T @ (weight.dot(z) - x),
-            hess=lambda x, v: v[0] * constr_hess_
+            jac=lambda z: weightT_dot(weight_dot(z) - x),
+            hess=constr_hess
         )
     else:
         constr = {
