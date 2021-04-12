@@ -229,7 +229,7 @@ def scipy_inference(
 
     # convert torch tensors to numpy arrays
     is_tensor = torch.is_tensor(x)
-    device = x.device if is_tensor else None
+    device, dtype = (x.device, x.dtype) if is_tensor else (None, None)
     x = _check_input(x)
     weight = _check_input(weight)
     if z0 is not None:
@@ -264,6 +264,6 @@ def scipy_inference(
 
     z = np.stack(z)
     if is_tensor:
-        z = torch.from_numpy(z).to(device)
+        z = torch.from_numpy(z).to(device, dtype)
 
     return z
