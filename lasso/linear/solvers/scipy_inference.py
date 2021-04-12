@@ -114,8 +114,8 @@ def _scipy_constr_bound(
     else:
         constr = {
             'type': 'ineq',
-            'fun': lambda z: rss_lim - 0.5 * np.sum((weight.dot(z) - x)**2),
-            'jac': lambda z: - weight.T @ (weight.dot(z) - x)
+            'fun': lambda z: rss_lim - 0.5 * np.sum((weight_dot(z) - x)**2),
+            'jac': lambda z: - weightT_dot(weight_dot(z) - x)
         }
 
     # bounds
