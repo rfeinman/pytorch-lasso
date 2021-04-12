@@ -6,15 +6,21 @@ from scipy.sparse import linalg
 
 
 @torch.no_grad()
-def lipschitz_constant(kernel, imsize, sqrt=False, **kwargs):
-    assert len(imsize) == 3
-    dim = imsize[0] * imsize[1] * imsize[2]
+def lip_constant(kernel, imsize, transpose=False, sqrt=False, **kwargs):
+    out_channels, in_channels, _, _ = kernel.shape
+    channels = out_channels if transpose else in_channels
+    height, width = imsize
+    dim = channels * height * width
 
     def matvec(v):
         v = torch.tensor(v, dtype=kernel.dtype, device=kernel.device)
-        v = v.view(1, *imsize)
-        v = F.conv2d(v, kernel, **kwargs)
-        v = F.conv_transpose2d(v, kernel, **kwargs)
+        v = v.view(1, channels, height, width)
+        if transpose:
+            v = F.conv_transpose2d(v, kernel, **kwargs)
+            v = F.conv2d(v, kernel, **kwargs)
+        else:
+            v = F.conv2d(v, kernel, **kwargs)
+            v = F.conv_transpose2d(v, kernel, **kwargs)
         return v.view(-1).cpu().numpy()
 
     conv = linalg.LinearOperator((dim, dim), matvec=matvec)
