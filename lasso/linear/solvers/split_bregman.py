@@ -31,7 +31,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
 
     Returns
     -------
-    xinv : torch.Tensor
+    x : torch.Tensor
         Sparse coefficients. Shape [n_samples, n_components]
     itn_out : int
         Iteration number of outer loop upon termination
@@ -47,14 +47,14 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
     # Rescale dampings
     eps = math.sqrt(alpha / 2) / math.sqrt(mu / 2)
     if x0 is None:
-        xinv = b.new_zeros(n_components, n_samples)
+        x = b.new_zeros(n_components, n_samples)
     else:
         assert x0.shape == (n_samples, n_components)
-        xinv = x0.T.clone(memory_format=torch.contiguous_format)
+        x = x0.T.clone(memory_format=torch.contiguous_format)
 
     # reg buffers
-    c = torch.zeros_like(xinv)
-    d = torch.zeros_like(xinv)
+    c = torch.zeros_like(x)
+    d = torch.zeros_like(x)
 
     # normal equations
     Atb = torch.matmul(A.T, b)
@@ -67,21 +67,21 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
         if update <= tol:
             break
 
-        xold = xinv.clone()
+        xold = x.clone()
         for _ in range(niter_inner):
             # Regularized sub-problem
             Atb_i = Atb.add(d - c, alpha=eps ** 2)
-            torch.cholesky_solve(Atb_i, L, out=xinv)
+            torch.cholesky_solve(Atb_i, L, out=x)
 
             # Shrinkage
-            d = F.softshrink(xinv + c, alpha)
+            d = F.softshrink(x + c, alpha)
 
         # Bregman update
-        c.add_(xinv - d, alpha=tau)
+        c.add_(x - d, alpha=tau)
 
         # update norm
-        torch.norm(xinv - xold, out=update)
+        torch.norm(x - xold, out=update)
 
-    xinv = xinv.T.contiguous()
+    x = x.T.contiguous()
 
-    return xinv, itn
+    return x, itn
