@@ -45,7 +45,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
     b = b.T.contiguous()
 
     # Rescale dampings
-    epsR = math.sqrt(alpha / 2) / math.sqrt(mu / 2)
+    eps = math.sqrt(alpha / 2) / math.sqrt(mu / 2)
     if x0 is None:
         xinv = b.new_zeros(n_components, n_samples)
     else:
@@ -59,7 +59,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
     # normal equations
     Atb = torch.matmul(A.T, b)
     AtA = torch.matmul(A.T, A)
-    AtA.diagonal(dim1=-2, dim2=-1).add_(epsR ** 2)
+    AtA.diagonal(dim1=-2, dim2=-1).add_(eps ** 2)
     L = torch.cholesky(AtA)
 
     update = b.new_tensor(float('inf'))
@@ -70,7 +70,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
         xold = xinv.clone()
         for _ in range(niter_inner):
             # Regularized sub-problem
-            Atb_i = Atb.add(d - c, alpha=epsR ** 2)
+            Atb_i = Atb.add(d - c, alpha=eps ** 2)
             torch.cholesky_solve(Atb_i, L, out=xinv)
 
             # Shrinkage
