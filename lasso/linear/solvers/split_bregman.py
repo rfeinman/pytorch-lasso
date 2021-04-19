@@ -65,11 +65,11 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
     itn_out = 0
     update = b.new_tensor(float('inf'))
     while update > tol and itn_out < niter_outer:
-        xold = xinv
+        xold = xinv.clone()
         for _ in range(niter_inner):
             # Regularized sub-problem
             Atb_i = Atb.add(d - c, alpha=epsR ** 2)
-            xinv = torch.cholesky_solve(Atb_i, L)
+            torch.cholesky_solve(Atb_i, L, out=xinv)
 
             # Shrinkage
             d = F.softshrink(xinv + c, alpha)
