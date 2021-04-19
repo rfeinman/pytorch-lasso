@@ -49,8 +49,8 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
     if x0 is None:
         xinv = b.new_zeros(n_components, n_samples)
     else:
-        assert x0.shape == (n_components, n_samples)
-        xinv = x0.clone(memory_format=torch.contiguous_format)
+        assert x0.shape == (n_samples, n_components)
+        xinv = x0.T.clone(memory_format=torch.contiguous_format)
 
     # reg buffers
     c = torch.zeros_like(xinv)
