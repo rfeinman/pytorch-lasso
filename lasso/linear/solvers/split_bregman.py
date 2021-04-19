@@ -10,11 +10,11 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
     Parameters
     ----------
     A : torch.Tensor
-        Linear transformation marix
+        Linear transformation marix. Shape [n_features, n_components]
     b : torch.Tensor
-        Reconstruction target
+        Reconstruction targets. Shape [n_samples, n_features]
     x0 : torch.Tensor, optional
-        Initial guess at the solution
+        Initial guess at the solution. Shape [n_samples, n_components]
     alpha : float
          L1 Regularization strength
     niter_outer : int
@@ -32,24 +32,25 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
     Returns
     -------
     xinv : torch.Tensor
-        Inverted model
+        Sparse coefficients. Shape [n_samples, n_components]
     itn_out : int
         Iteration number of outer loop upon termination
 
     """
-    assert b.shape[0] == A.shape[0]
-    squeeze = b.dim() == 1
-    if squeeze:
-        b = b.unsqueeze(-1)
-    batch_shape = b.shape[1:]
+    assert b.dim() == 2
+    assert A.dim() == 2
+    assert b.shape[1] == A.shape[0]
+    n_features, n_components = A.shape
+    n_samples = b.shape[0]
+    b = b.T.contiguous()
 
     # Rescale dampings
     epsR = math.sqrt(alpha / 2) / math.sqrt(mu / 2)
     if x0 is None:
-        xinv = b.new_zeros(A.shape[1], *batch_shape)
+        xinv = b.new_zeros(n_components, n_samples)
     else:
-        assert x0.shape == (A.shape[1], ) + batch_shape
-        xinv = x0.clone()
+        assert x0.shape == (n_components, n_samples)
+        xinv = x0.clone(memory_format=torch.contiguous_format)
 
     # reg buffers
     c = torch.zeros_like(xinv)
@@ -80,7 +81,6 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
         # update norm
         torch.norm(xinv - xold, out=update)
 
-    if squeeze:
-        xinv = xinv.squeeze(-1)
+    xinv = xinv.T.contiguous()
 
     return xinv, itn_out
