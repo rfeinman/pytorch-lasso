@@ -104,7 +104,7 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
     Parameters
     ----------
     x : Tensor
-        Initial code vectors of shape [batch, inp_size].
+        Reconstruction targets of shape [batch, inp_size].
     weight : Tensor
         Dictionary matrix of shape [inp_size, code_size].
     z0 : Tensor, optional
