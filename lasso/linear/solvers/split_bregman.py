@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 
-def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
+def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
                   mu=1., tol=1e-10, tau=1.):
     """Split Bregman for L1-regularized least squares.
 
@@ -17,7 +17,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
         Initial guess at the solution. Shape [n_samples, n_components]
     alpha : float
          L1 Regularization strength
-    niter_outer : int
+    maxiter : int
         Number of iterations of outer loop
     niter_inner : int
         Number of iterations of inner loop
@@ -62,9 +62,11 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
     AtA.diagonal(dim1=-2, dim2=-1).add_(epsR ** 2)
     L = torch.cholesky(AtA)
 
-    itn_out = 0
     update = b.new_tensor(float('inf'))
-    while update > tol and itn_out < niter_outer:
+    for itn in range(maxiter):
+        if update <= tol:
+            break
+
         xold = xinv.clone()
         for _ in range(niter_inner):
             # Regularized sub-problem
@@ -76,11 +78,10 @@ def split_bregman(A, b, x0=None, alpha=1.0, niter_outer=3, niter_inner=5,
 
         # Bregman update
         c.add_(xinv - d, alpha=tau)
-        itn_out += 1
 
         # update norm
         torch.norm(xinv - xold, out=update)
 
     xinv = xinv.T.contiguous()
 
-    return xinv, itn_out
+    return xinv, itn
