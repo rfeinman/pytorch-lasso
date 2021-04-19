@@ -63,6 +63,7 @@ The `lasso.linear` module gathers a number of popular algorithms for this settin
 - __Interior Point__: The primal-dual log barrier (interior point) method proposed in [4]. Also known as _basis pursuit_. The algorithm is summarized nicely in [5], and also in section 2.3 of [1]. These summaries informed the current implementation.
 - __Iterative Ridge__: An iterative algorithm developed in [6] that uses an update rule inspired by ridge regression, along with the approximation <img src="http://latex.codecogs.com/svg.latex?||z||_1&space;\approx&space;||z||_2^2&space;/&space;||z||_1" />. The updates are applied iteratively since the step depends on z (unlike classical ridge). An optional line search can make convergence much faster. Although less efficient than ISTA/CD, this algorithm consistently produces the best results in my evaluations thus far. Runtime on GPU is very reasonable.
 - __Coordinate Descent__: A popular approach for sparse coding developed in [7]; often considered the fastest algorithm for sparse code inference. The current cd implementation is a batched variant of the per-sample CD algorithms offered in scikit-learn. It does not always work as expected; there may be some bugs. I've included a "modified" variant (coord_descent_mod) derived from sklearn that is much slower but produces reliable results.
+- __Split Bregman__: The Split Bregman method of Goldstein & Osher (2008).
 
 ### 2D Convolution
 

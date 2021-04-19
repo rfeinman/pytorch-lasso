@@ -3,14 +3,15 @@ import torch
 
 from .utils import lstsq, ridge
 from .solvers import (coord_descent, gpsr_basic, iterative_ridge, ista,
-                      interior_point)
+                      interior_point, split_bregman)
 
 _init_defaults = {
     'ista': 'zero',
     'cd': 'zero',
     'gpsr': 'zero',
     'iter-ridge': 'ridge',
-    'interior-point': 'ridge'
+    'interior-point': 'ridge',
+    'split-bregman': 'zero'
 }
 
 
@@ -61,6 +62,8 @@ def sparse_encode(x, weight, alpha=1.0, z0=None, algorithm='ista', init=None,
         z = ista(x, z0, weight, alpha, **kwargs)
     elif algorithm == 'interior-point':
         z, _ = interior_point(x, weight, z0, alpha, **kwargs)
+    elif algorithm == 'split-bregman':
+        z, _ = split_bregman(weight, x, z0, alpha, **kwargs)
     else:
         raise ValueError("invalid algorithm parameter '{}'.".format(algorithm))
 
