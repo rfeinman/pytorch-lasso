@@ -20,7 +20,7 @@ dictionary, losses = dict_learning(data, n_components=50, alpha=0.5, algorithm='
 coeffs = sparse_encode(data, dictionary, alpha=0.2, algorithm='interior-point')
 ```
 
-__Lasso solvers:__ ISTA, Gradient Projection, Interior Point, Iterative Ridge, Coordinate Descent
+__Lasso solvers:__ ISTA, Gradient Projection, Interior Point, Iterative Ridge, Coordinate Descent, Split Bregman
 
 __Examples:__ See the [Omniglot tutorial](https://github.com/rfeinman/pytorch-lasso/blob/master/examples/dict_learning_omniglot.ipynb) for a demonstration of how to use pytorch-lasso to perform dictionary learning with image patches.
 
