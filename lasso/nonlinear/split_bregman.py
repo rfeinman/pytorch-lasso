@@ -12,7 +12,8 @@ except:
                   'with option solver="cg".')
 
 
-def _lstsq_exact(fun_with_jac, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.):
+def _lstsq_exact(fun_with_jac, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
+                 xtol=1e-5):
     for _ in range(max_iter):
         f, J = fun_with_jac(x)
         grad = mu * J.T.mv(f)
@@ -27,11 +28,14 @@ def _lstsq_exact(fun_with_jac, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.):
                 raise
             p = torch.linalg.solve(JtJ, grad)
         x.add_(p, alpha=-lr)
+        if torch.norm(p.mul(lr), p=1) <= xtol:
+            break
 
     return x
 
 
-def _lstsq_cg(fun, x, d, b, max_iter=5, mu=1., lambd=1., lr=1., **cg_kwargs):
+def _lstsq_cg(fun, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
+              xtol=1e-5, **cg_kwargs):
     for _ in range(max_iter):
         J = JacobianLinearOperator(fun, x)
         f = J.f.detach()
@@ -41,6 +45,8 @@ def _lstsq_cg(fun, x, d, b, max_iter=5, mu=1., lambd=1., lr=1., **cg_kwargs):
                              mv=lambda v: mu * J.rmv(J.mv(v)) + lambd * v)
         p = cg(JtJ, grad, **cg_kwargs)[0]
         x.add_(p, alpha=-lr)
+        if torch.norm(p.mul(lr), p=1) <= xtol:
+            break
 
     return x
 
@@ -80,12 +86,13 @@ def split_bregman(
 
         def lstsq_subproblem(x, d, b):
             return _lstsq_exact(fun_with_jac, x, d, b, max_iter=lstsq_iter,
-                                mu=1/alpha, lambd=lambd, lr=lr)
+                                mu=1/alpha, lambd=lambd, lr=lr, xtol=xtol)
 
     elif solver == 'cg':
         def lstsq_subproblem(x, d, b):
             return _lstsq_cg(fun, x, d, b, max_iter=lstsq_iter,
-                            mu=1/alpha, lambd=lambd, lr=lr, **cg_kwargs)
+                             mu=1/alpha, lambd=lambd, lr=lr, xtol=xtol,
+                             **cg_kwargs)
 
     else:
         raise ValueError('Expected `solver` to be one of "exact" or "cg" '
