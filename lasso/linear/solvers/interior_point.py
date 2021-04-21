@@ -1,4 +1,3 @@
-import warnings
 from torch import Tensor
 import torch
 import torch.nn.functional as F
@@ -199,12 +198,9 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         mu *= 1 - torch.min(beta_z, beta_sl).clamp(None, 0.99)
 
         # sanity check: are all variables still >= 0?
-        if not torch.all(z >= 0) and torch.all(s >= 0):
-            # If this happens, it's either a bug or a precision error
-            warnings.warn('Elements of z and/or s have become negative. '
-                          'Clamping them to zero...')
-            z.clamp_(0, None)
-            s.clamp_(0, None)
+        # If this happens, it's either a bug or a precision error
+        z.clamp_(min=0)
+        s.clamp_(min=0)
 
         # -------------------------------
         #     Check stopping criteria
@@ -219,7 +215,7 @@ def interior_point(x, weight, z0=None, alpha=1.0, maxiter=20, barrier_init=0.1,
         if verbose:
             BasicReport.print_iteration(i+1,f(z,lmbda),prim_feas,dual_feas,gap)
 
-        if (prim_feas < tol) and (dual_feas < tol) and (gap < tol):
+        if ((prim_feas < tol) & (dual_feas < tol) & (gap < tol)):
             success = True
             break
 
