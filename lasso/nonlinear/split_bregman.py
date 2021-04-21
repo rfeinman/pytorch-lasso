@@ -35,7 +35,9 @@ def _lstsq_exact(fun_with_jac, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
 
 
 def _lstsq_cg(fun, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
-              xtol=1e-5, **cg_kwargs):
+              xtol=1e-5, cg_kwargs=None):
+    if cg_kwargs is None:
+        cg_kwargs = {}
     for _ in range(max_iter):
         J = JacobianLinearOperator(fun, x)
         f = J.f.detach()
@@ -66,8 +68,6 @@ def split_bregman(
     xtol = input_size * xtol
     if max_iter is None:
         max_iter = min(input_size, output_size)
-    if cg_kwargs is None:
-        cg_kwargs = {}
 
     def cost_fn(x):
         x = x.view_as(x0)
@@ -92,7 +92,7 @@ def split_bregman(
         def lstsq_subproblem(x, d, b):
             return _lstsq_cg(fun, x, d, b, max_iter=lstsq_iter,
                              mu=1/alpha, lambd=lambd, lr=lr, xtol=xtol,
-                             **cg_kwargs)
+                             cg_kwargs=cg_kwargs)
 
     else:
         raise ValueError('Expected `solver` to be one of "exact" or "cg" '
