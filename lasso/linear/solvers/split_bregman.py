@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
-                  mu=1., tol=1e-10, tau=1., verbose=False):
+                  tol=1e-10, tau=1., verbose=False):
     """Split Bregman for L1-regularized least squares.
 
     Parameters
@@ -16,13 +16,13 @@ def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
     x0 : torch.Tensor, optional
         Initial guess at the solution. Shape [n_samples, n_components]
     alpha : float
-         L1 Regularization strength
+        L1 Regularization strength
+    eps : float
+        Dampening term; constraint penalty strength
     maxiter : int
         Number of iterations of outer loop
     niter_inner : int
         Number of iterations of inner loop
-    mu : float, optional
-         Data term damping
     tol : float, optional
         Tolerance. Stop outer iterations if difference between inverted model
         at subsequent iterations is smaller than ``tol``
@@ -43,6 +43,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
     n_features, n_components = A.shape
     n_samples = b.shape[0]
     b = b.T.contiguous()
+    mu = 1 / alpha
 
     # Rescale dampings
     epsR = eps / mu
@@ -59,7 +60,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
     # normal equations
     Atb = torch.matmul(A.T, b)
     AtA = torch.matmul(A.T, A)
-    AtA.diagonal(dim1=-2, dim2=-1).add_(epsR * alpha**2)
+    AtA.diagonal(dim1=-2, dim2=-1).add_(epsR)
     L = torch.cholesky(AtA)
 
     update = b.new_tensor(float('inf'))
@@ -70,14 +71,14 @@ def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
         xold = x.clone()
         for _ in range(niter_inner):
             # Regularized sub-problem
-            Atb_i = Atb.add(d - c, alpha=epsR * alpha)
+            Atb_i = Atb.add(d - c, alpha=epsR)
             torch.cholesky_solve(Atb_i, L, out=x)
 
             # Shrinkage
-            d = F.softshrink(alpha * x + c, eps)
+            d = F.softshrink(x + c, eps)
 
         # Bregman update
-        c.add_(alpha * x - d, alpha=tau)
+        c.add_(x - d, alpha=tau)
 
         # update norm
         torch.norm(x - xold, out=update)
