@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 
-def split_bregman(A, y, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
+def split_bregman(A, y, x0=None, alpha=1.0, lambd=1.0, maxiter=20, niter_inner=5,
                   tol=1e-10, tau=1., verbose=False):
     """Split Bregman for L1-regularized least squares.
 
@@ -17,7 +17,7 @@ def split_bregman(A, y, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
         Initial guess at the solution. Shape [n_samples, n_components]
     alpha : float
         L1 Regularization strength
-    eps : float
+    lambd : float
         Dampening term; constraint penalty strength
     maxiter : int
         Number of iterations of outer loop
@@ -46,7 +46,7 @@ def split_bregman(A, y, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
     mu = 1 / alpha
 
     # Rescale dampings
-    epsR = eps / mu
+    epsR = lambd / mu
     if x0 is None:
         x = y.new_zeros(n_components, n_samples)
     else:
@@ -75,7 +75,7 @@ def split_bregman(A, y, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
             torch.cholesky_solve(Aty_i, L, out=x)
 
             # Shrinkage
-            d = F.softshrink(x + b, eps)
+            d = F.softshrink(x + b, lambd)
 
         # Bregman update
         b.add_(x - d, alpha=tau)
