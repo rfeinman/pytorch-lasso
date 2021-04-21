@@ -3,7 +3,7 @@ import torch
 import torch.nn.functional as F
 
 
-def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
+def split_bregman(A, y, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
                   tol=1e-10, tau=1., verbose=False):
     """Split Bregman for L1-regularized least squares.
 
@@ -11,7 +11,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
     ----------
     A : torch.Tensor
         Linear transformation marix. Shape [n_features, n_components]
-    b : torch.Tensor
+    y : torch.Tensor
         Reconstruction targets. Shape [n_samples, n_features]
     x0 : torch.Tensor, optional
         Initial guess at the solution. Shape [n_samples, n_components]
@@ -37,33 +37,33 @@ def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
         Iteration number of outer loop upon termination
 
     """
-    assert b.dim() == 2
+    assert y.dim() == 2
     assert A.dim() == 2
-    assert b.shape[1] == A.shape[0]
+    assert y.shape[1] == A.shape[0]
     n_features, n_components = A.shape
-    n_samples = b.shape[0]
-    b = b.T.contiguous()
+    n_samples = y.shape[0]
+    y = y.T.contiguous()
     mu = 1 / alpha
 
     # Rescale dampings
     epsR = eps / mu
     if x0 is None:
-        x = b.new_zeros(n_components, n_samples)
+        x = y.new_zeros(n_components, n_samples)
     else:
         assert x0.shape == (n_samples, n_components)
         x = x0.T.clone(memory_format=torch.contiguous_format)
 
     # reg buffers
-    c = torch.zeros_like(x)
+    b = torch.zeros_like(x)
     d = torch.zeros_like(x)
 
     # normal equations
-    Atb = torch.matmul(A.T, b)
+    Aty = torch.matmul(A.T, y)
     AtA = torch.matmul(A.T, A)
     AtA.diagonal(dim1=-2, dim2=-1).add_(epsR)
     L = torch.cholesky(AtA)
 
-    update = b.new_tensor(float('inf'))
+    update = y.new_tensor(float('inf'))
     for itn in range(maxiter):
         if update <= tol:
             break
@@ -71,20 +71,20 @@ def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
         xold = x.clone()
         for _ in range(niter_inner):
             # Regularized sub-problem
-            Atb_i = Atb.add(d - c, alpha=epsR)
-            torch.cholesky_solve(Atb_i, L, out=x)
+            Aty_i = Aty.add(d - b, alpha=epsR)
+            torch.cholesky_solve(Aty_i, L, out=x)
 
             # Shrinkage
-            d = F.softshrink(x + c, eps)
+            d = F.softshrink(x + b, eps)
 
         # Bregman update
-        c.add_(x - d, alpha=tau)
+        b.add_(x - d, alpha=tau)
 
         # update norm
         torch.norm(x - xold, out=update)
 
         if verbose:
-            cost = 0.5 * (A.matmul(x) - b).square().sum() + alpha * x.abs().sum()
+            cost = 0.5 * (A.matmul(x) - y).square().sum() + alpha * x.abs().sum()
             print('iter %3d - cost: %0.4f' % (itn, cost))
 
     x = x.T.contiguous()
