@@ -3,8 +3,8 @@ import torch
 import torch.nn.functional as F
 
 
-def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
-                  mu=1., tol=1e-10, tau=1.):
+def split_bregman(A, b, x0=None, alpha=1.0, eps=1.0, maxiter=20, niter_inner=5,
+                  mu=1., tol=1e-10, tau=1., verbose=False):
     """Split Bregman for L1-regularized least squares.
 
     Parameters
@@ -45,7 +45,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
     b = b.T.contiguous()
 
     # Rescale dampings
-    eps = math.sqrt(alpha / 2) / math.sqrt(mu / 2)
+    epsR = eps / mu
     if x0 is None:
         x = b.new_zeros(n_components, n_samples)
     else:
@@ -59,7 +59,7 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
     # normal equations
     Atb = torch.matmul(A.T, b)
     AtA = torch.matmul(A.T, A)
-    AtA.diagonal(dim1=-2, dim2=-1).add_(eps ** 2)
+    AtA.diagonal(dim1=-2, dim2=-1).add_(epsR * alpha**2)
     L = torch.cholesky(AtA)
 
     update = b.new_tensor(float('inf'))
@@ -70,17 +70,21 @@ def split_bregman(A, b, x0=None, alpha=1.0, maxiter=20, niter_inner=5,
         xold = x.clone()
         for _ in range(niter_inner):
             # Regularized sub-problem
-            Atb_i = Atb.add(d - c, alpha=eps ** 2)
+            Atb_i = Atb.add(d - c, alpha=epsR * alpha)
             torch.cholesky_solve(Atb_i, L, out=x)
 
             # Shrinkage
-            d = F.softshrink(x + c, alpha)
+            d = F.softshrink(alpha * x + c, eps)
 
         # Bregman update
-        c.add_(x - d, alpha=tau)
+        c.add_(alpha * x - d, alpha=tau)
 
         # update norm
         torch.norm(x - xold, out=update)
+
+        if verbose:
+            cost = 0.5 * (A.matmul(x) - b).square().sum() + alpha * x.abs().sum()
+            print('iter %3d - cost: %0.4f' % (itn, cost))
 
     x = x.T.contiguous()
 
