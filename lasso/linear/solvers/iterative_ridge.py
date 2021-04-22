@@ -51,32 +51,33 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
         Boolean indicating if the optimization succeeded
 
     """
+    if cg and cg_options is None:
+        cg_options = {}
+    if eps is None:
+        eps = torch.finfo(weight.dtype).eps
+    tol = z0.numel() * tol
+
     def f(z):
         x_hat = torch.matmul(z, weight.T)
         loss = 0.5 * (x_hat - x).pow(2).sum() + alpha * z.abs().sum()
         return loss
 
     # initialize
-    if cg and cg_options is None:
-        cg_options = {}
-    if eps is None:
-        eps = torch.finfo(weight.dtype).eps
-    batch_size = z0.size(0)
-    tol = z0.numel() * tol
-    zk = z0
-    fval = f(zk)
+    z = z0
+    fval = f(z)
+    if verbose:
+        print('initial fval: %0.4f' % fval)
 
-    # right hand side of the residual sum of squares (RSS) problem
+    # right hand side of the residual sum of squares (RSS) problem. [B,D]
     rhs = torch.matmul(x, weight)  # [B,D] = [B,K] @ [K,D]
 
     if not cg:
-        # batch gram matrix W^T @ W
-        A = torch.matmul(weight.T, weight) # [D,D] = [D,K] @ [K,D]
-        A = A[None].expand(batch_size, -1, -1)  # [B,D,D]
+        # batch gram matrix W^T @ W. [B,D,D]
+        A = torch.matmul(weight.T, weight).expand(z.size(0), -1, -1)
 
     for k in range(1, maxiter + 1):
         # compute ridge diagonal factor
-        zmag = zk.abs()
+        zmag = z.abs()
         zmag_inv = zmag.reciprocal().masked_fill(zmag < eps, 0)
 
         # solve ridge problem
@@ -87,33 +88,33 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
                 Av += (2 * alpha * zmag_inv + tikhonov) * v
                 return Av
             dot = lambda u, v: torch.sum(u*v, 1, keepdim=True)
-            zk1 = conjgrad(rhs, Adot, dot, **cg_options)
+            z_sol = conjgrad(rhs, Adot, dot, **cg_options)
         else:
             # use cholesky factorization
             Ak = A + 2 * alpha * torch.diag_embed(zmag_inv)  # [B,D,D]
             if tikhonov > 0:
                 Ak.diagonal(dim1=1, dim2=2).add_(tikhonov)
-            zk1 = batch_cholesky_solve(rhs, Ak)  # [B,D]
+            z_sol = batch_cholesky_solve(rhs, Ak)  # [B,D]
 
         if line_search:
             # line search optimization
-            pk = zk1 - zk
-            line_obj = lambda t: float(f(zk.add(pk, alpha=t)))
+            p = z_sol - z
+            line_obj = lambda t: float(f(z.add(p, alpha=t)))
             res = minimize_scalar(line_obj, bounds=(0,10), method='bounded')
             t = res.x
             fval = torch.tensor(res.fun)
-            update = pk.mul(t)
-            zk = zk + update
+            update = p.mul(t)
+            z = z + update
         else:
             # fixed step size
-            update = zk1 - zk
-            zk = zk1
-            fval = f(zk)
+            update = z_sol - z
+            z = z_sol
+            fval = f(z)
 
         if verbose:
-            print('fval: %0.4f' % fval)
+            print('iter %3d - fval: %0.4f' % (k, fval))
 
-        # check for termination
+        # check for convergence
         if update.abs().sum() <= tol:
             msg = _status_message['success']
             break
@@ -131,4 +132,4 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
         print("         Current function value: %f" % fval)
         print("         Iterations: %d" % k)
 
-    return zk
+    return z
