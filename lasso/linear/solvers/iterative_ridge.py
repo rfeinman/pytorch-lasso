@@ -1,6 +1,6 @@
 from torch import Tensor
 import torch
-from torch.optim.lbfgs import _strong_wolfe
+from scipy.optimize import minimize_scalar
 from scipy.optimize.optimize import _status_message
 
 from ...conjgrad import conjgrad
@@ -51,29 +51,10 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
         Boolean indicating if the optimization succeeded
 
     """
-    def terminate(msg):
-        if verbose:
-            print(msg)
-            print("         Current function value: %f" % fval)
-            print("         Iterations: %d" % k)
-        return zk
-
     def f(z):
         x_hat = torch.matmul(z, weight.T)
         loss = 0.5 * (x_hat - x).pow(2).sum() + alpha * z.abs().sum()
         return loss
-
-    def grad_f(z):
-        """used for strong-wolfe line search"""
-        x_hat = torch.matmul(z, weight.T)
-        grad = torch.matmul(x_hat - x, weight)
-        grad = grad + alpha * z.sign()
-        return grad
-
-    def dir_evaluate(z, t, d):
-        """used for strong-wolfe line search"""
-        z = (z + t * d).view(z0.shape)
-        return f(z), grad_f(z).flatten()
 
     # initialize
     if cg and cg_options is None:
@@ -93,7 +74,7 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
         A = torch.matmul(weight.T, weight) # [D,D] = [D,K] @ [K,D]
         A = A[None].expand(batch_size, -1, -1)  # [B,D,D]
 
-    for k in range(maxiter):
+    for k in range(1, maxiter + 1):
         # compute ridge diagonal factor
         zmag = zk.abs()
         zmag_inv = zmag.reciprocal().masked_fill(zmag < eps, 0)
@@ -115,15 +96,13 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
             zk1 = batch_cholesky_solve(rhs, Ak)  # [B,D]
 
         if line_search:
-            # strong-wolfe search
-            pk = zk1 - zk  # update direction
-            gfk = grad_f(zk)  # gradient vector. TODO: do we need this?
-            gtd = torch.sum(gfk * pk)  # directional derivative
-            fval, gfk, t, ls_nevals = \
-                _strong_wolfe(
-                    dir_evaluate, x=zk.flatten(), t=1., d=pk.flatten(),
-                    f=fval, g=gfk.flatten(), gtd=gtd)
-            update = t * pk
+            # line search optimization
+            pk = zk1 - zk
+            line_obj = lambda t: float(f(zk.add(pk, alpha=t)))
+            res = minimize_scalar(line_obj, bounds=(0,10), method='bounded')
+            t = res.x
+            fval = torch.tensor(res.fun)
+            update = pk.mul(t)
             zk = zk + update
         else:
             # fixed step size
@@ -136,10 +115,20 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
 
         # check for termination
         if update.abs().sum() <= tol:
-            return terminate(_status_message['success'])
+            msg = _status_message['success']
+            break
 
         # check for NaN
-        if fval.isnan() or update.isnan().any():
-            return terminate(_status_message['nan'])
+        if (fval.isnan() | update.isnan().any()):
+            msg = _status_message['nan']
+            break
 
-    return terminate("Warning: " + _status_message['maxiter'])
+    else:
+        msg = "Warning: " + _status_message['maxiter']
+
+    if verbose:
+        print(msg)
+        print("         Current function value: %f" % fval)
+        print("         Iterations: %d" % k)
+
+    return zk
