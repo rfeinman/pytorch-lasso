@@ -3,6 +3,7 @@ import torch
 import torch.autograd as autograd
 import torch.nn.functional as F
 from torch._vmap_internals import _vmap
+from torch.optim.lbfgs import _strong_wolfe
 
 # TODO: remove dependence on ptkit
 try:
@@ -38,6 +39,20 @@ def _lstsq_cg(fun, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
               xtol=1e-5, cg_kwargs=None):
     if cg_kwargs is None:
         cg_kwargs = {}
+
+    def obj(u):
+        """used for strong-wolfe line search"""
+        return 0.5 * (mu * fun(u).square().sum() + lambd * (d-u-b).square().sum())
+
+    def dir_evaluate(u, t, p):
+        """used for strong-wolfe line search"""
+        u = u.add(p, alpha=t).view_as(x).requires_grad_(True)
+        with torch.enable_grad():
+            loss = obj(u)
+        grad = autograd.grad(loss, u)[0]
+        return float(loss), grad.view(-1)
+
+    loss = obj(x)
     for _ in range(max_iter):
         J = JacobianLinearOperator(fun, x)
         f = J.f.detach()
@@ -45,9 +60,12 @@ def _lstsq_cg(fun, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
         grad.add_(d - x - b, alpha=-lambd)
         JtJ = LinearOperator(shape=(x.numel(), x.numel()),
                              mv=lambda v: mu * J.rmv(J.mv(v)) + lambd * v)
-        p = cg(JtJ, grad, **cg_kwargs)[0]
-        x.add_(p, alpha=-lr)
-        if torch.norm(p.mul(lr), p=1) <= xtol:
+        p = - cg(JtJ, grad, **cg_kwargs)[0]
+        loss, _, t, _ = \
+            _strong_wolfe(dir_evaluate, x.view(-1), lr, p.view(-1), loss,
+                          grad.view(-1), grad.mul(p).sum())
+        x.add_(p, alpha=t)
+        if torch.norm(p.mul(t), p=1) <= xtol:
             break
 
     return x
