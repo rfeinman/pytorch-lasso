@@ -55,7 +55,7 @@ def split_bregman(A, y, x0=None, alpha=1.0, lambd=1.0, maxiter=20, niter_inner=5
     Aty = torch.mm(A.T, y) / alpha
     AtA = torch.mm(A.T, A) / alpha
     AtA.diagonal(dim1=-2, dim2=-1).add_(lambd)
-    L = torch.cholesky(AtA)
+    AtA_inv = torch.cholesky_inverse(torch.cholesky(AtA))
 
     update = y.new_tensor(float('inf'))
     for itn in range(maxiter):
@@ -66,7 +66,7 @@ def split_bregman(A, y, x0=None, alpha=1.0, lambd=1.0, maxiter=20, niter_inner=5
         for _ in range(niter_inner):
             # Regularized sub-problem
             Aty_i = Aty.add(d - b, alpha=lambd)
-            torch.cholesky_solve(Aty_i, L, out=x)
+            torch.mm(AtA_inv, Aty_i, out=x)
 
             # Shrinkage
             d = F.softshrink(x + b, 1 / lambd)
