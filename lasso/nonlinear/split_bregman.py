@@ -8,8 +8,8 @@ from torch._vmap_internals import _vmap
 try:
     from ptkit.linalg.sparse import LinearOperator, JacobianLinearOperator, cg
 except:
-    warnings.warn('cannot find package ptkit! split_bregman cannot be used '
-                  'with option solver="cg".')
+    warnings.warn('split_bregman_nl option `solver="cg"` cannot be used '
+                  'without package ptkit.')
 
 
 def _lstsq_exact(fun_with_jac, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
