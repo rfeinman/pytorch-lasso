@@ -18,15 +18,18 @@ def _unfreeze_grad(model, requires_grad):
 
 
 def ista_nonlinear(x, z0, decoder, alpha=1.0, fast=True, maxiter=10, lr=0.01,
-                   tol=1e-5, eval_mode=True):
+                   tol=1e-5, eval_mode=True, verbose=0):
     # configure decoder
     requires_grad = _freeze_grad(decoder)
     training = decoder.training
     if eval_mode:
         # set decoder to eval mode (in case dropout, batchnorm etc.)
         decoder.eval()
-
+    verbose = int(verbose)
     tol = z0.numel() * tol
+
+    def lasso_loss(zk):
+        return 0.5 * (decoder(zk) - x).pow(2).sum() + alpha * zk.abs().sum()
 
     # derivative of the residual sum-of-squares (rss) objective
     def rss_grad_fn(zk):
@@ -40,12 +43,15 @@ def ista_nonlinear(x, z0, decoder, alpha=1.0, fast=True, maxiter=10, lr=0.01,
     def step(zk):
         return F.softshrink(zk - lr * rss_grad_fn(zk), alpha * lr)
 
+    if verbose:
+        print('initial loss: %0.4f' % lasso_loss(z0))
+
     # optimize
     z = z0.detach()
     if fast:
         y = z0.detach()
         t = 1
-    for _ in range(maxiter):
+    for niter in range(1, maxiter + 1):
         z_next = step(y) if fast else step(z)
         # check for convergence
         if (z - z_next).abs().sum() <= tol:
@@ -57,6 +63,11 @@ def ista_nonlinear(x, z0, decoder, alpha=1.0, fast=True, maxiter=10, lr=0.01,
             y = z_next + ((t-1)/t_next) * (z_next - z)
             t = t_next
         z = z_next
+        if verbose > 1:
+            print('iter %3d - loss: %0.4f' % (niter, lasso_loss(z)))
+
+    if verbose:
+        print('final loss: %0.4f' % lasso_loss(z))
 
     # re-configure decoder
     _unfreeze_grad(decoder, requires_grad)
