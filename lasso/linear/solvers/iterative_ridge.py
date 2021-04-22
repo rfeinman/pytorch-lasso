@@ -9,7 +9,7 @@ from ..utils import batch_cholesky_solve
 
 
 def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-4, eps=None,
-                    maxiter=20, line_search=True, cg=False, cg_options=None,
+                    maxiter=10, line_search=True, cg=False, cg_options=None,
                     verbose=False):
     """Iterated Ridge Regression method for Lasso problems
 
