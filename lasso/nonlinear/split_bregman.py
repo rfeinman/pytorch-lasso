@@ -1,4 +1,4 @@
-import warnings
+import sys
 import torch
 import torch.autograd as autograd
 import torch.nn.functional as F
@@ -9,8 +9,7 @@ from torch.optim.lbfgs import _strong_wolfe
 try:
     from ptkit.linalg.sparse import LinearOperator, JacobianLinearOperator, cg
 except:
-    warnings.warn('split_bregman_nl option `solver="cg"` cannot be used '
-                  'without package ptkit.')
+    pass
 
 
 def _lstsq_exact(fun_with_jac, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
@@ -107,6 +106,11 @@ def split_bregman_nl(
                                 mu=1/alpha, lambd=lambd, lr=lr, xtol=xtol)
 
     elif solver == 'cg':
+        if not 'ptkit' in sys.modules:
+            raise RuntimeError(
+                'split_bregman_nl option `solver="cg"` cannot be used '
+                'without package ptkit.')
+
         def lstsq_subproblem(x, d, b):
             return _lstsq_cg(fun, x, d, b, max_iter=lstsq_iter,
                              mu=1/alpha, lambd=lambd, lr=lr, xtol=xtol,
