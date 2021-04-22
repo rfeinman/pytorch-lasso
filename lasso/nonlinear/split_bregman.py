@@ -54,7 +54,7 @@ def _lstsq_cg(fun, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
 
 
 @torch.no_grad()
-def split_bregman(
+def split_bregman_nl(
         fun, x0, lr=1.,
         alpha=1., lambd=1., tau=1.,
         max_iter=None, inner_iter=5, lstsq_iter=5,
