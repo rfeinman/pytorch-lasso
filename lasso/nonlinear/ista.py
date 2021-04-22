@@ -17,8 +17,8 @@ def _unfreeze_grad(model, requires_grad):
             p.requires_grad_(True)
 
 
-def ista_nonlinear(x, z0, decoder, alpha=1.0, fast=True, maxiter=10, lr=0.01,
-                   tol=1e-5, eval_mode=True, verbose=0):
+def ista_nl(x, z0, decoder, alpha=1.0, fast=True, maxiter=10, lr=0.01,
+            tol=1e-5, eval_mode=True, verbose=0):
     # configure decoder
     requires_grad = _freeze_grad(decoder)
     training = decoder.training
