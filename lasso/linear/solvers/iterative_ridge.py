@@ -58,7 +58,7 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
     tol = z0.numel() * tol
 
     def f(z):
-        x_hat = torch.matmul(z, weight.T)
+        x_hat = torch.mm(z, weight.T)
         loss = 0.5 * (x_hat - x).pow(2).sum() + alpha * z.abs().sum()
         return loss
 
@@ -69,11 +69,11 @@ def iterative_ridge(z0, x, weight, alpha=1.0, tol=1e-5, tikhonov=1e-5, eps=None,
         print('initial fval: %0.4f' % fval)
 
     # right hand side of the residual sum of squares (RSS) problem. [B,D]
-    rhs = torch.matmul(x, weight)  # [B,D] = [B,K] @ [K,D]
+    rhs = torch.mm(x, weight)  # [B,D] = [B,K] @ [K,D]
 
     if not cg:
         # batch gram matrix W^T @ W. [B,D,D]
-        A = torch.matmul(weight.T, weight).expand(z.size(0), -1, -1)
+        A = torch.mm(weight.T, weight).expand(z.size(0), -1, -1)
 
     for k in range(1, maxiter + 1):
         # compute ridge diagonal factor
