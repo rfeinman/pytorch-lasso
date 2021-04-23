@@ -78,7 +78,7 @@ The `lasso.conv2d` module implements a few solvers specialized for the 2D convol
 ### Nonlinear
 
 The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z), where D is a nonlinear decoder. 
-This module is experimental: with the exception of ISTA and OWLQN--which are established techniques for nonlinear lasso--the solvers here represent my own ideas for extending linear methods.
+This module is experimental: with the exception of ISTA and OWLQN—which are established techniques for nonlinear lasso—the solvers here represent my own ideas for extending linear methods.
 
 The current offerings are as follows:
 - __ISTA__: A generalized ISTA solver for nonlinear decoders. I've included a "dynamic" learning rate option which estimates the lipschitz constant of the RSS gradient function by linearizing this function around the current point.
