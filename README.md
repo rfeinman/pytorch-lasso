@@ -77,7 +77,13 @@ The `lasso.conv2d` module implements a few solvers specialized for the 2D convol
 
 ### Nonlinear extensions
 
-The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z) for a nonlinear decoder D. Coming soon: a more detailed description of the current nonlinear offerings and ongoing developments.
+The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z), where D is a nonlinear decoder. 
+This module is experimental: unlike the linear solvers, which represent cannonical lasso solutions, many of the nonlinear solvers are my own personal ideas for extending linear methods.
+
+The current offerings are as follows:
+- __ISTA__: A generalized ISTA solver for nonlinear decoders. I've included a "dynamic" learning rate option which estimates the lipschitz constant of the RSS gradient function by linearizing this function around the current point.
+- __Iterative Ridge BFGS__: A generalization of the Iterative Ridge method. Uses Newton steps with a BFGS approximation of the RSS hessian.
+- __Split Bregman__: A generalization of the Split Bregman algorithm. This algorithm uses the Gauss-Newton method, a modification of Newton's method specialized for least squares objective terms.
 
 
 ## 3. Dictionary Learning
