@@ -14,6 +14,7 @@ class BFGS(object):
         self.H = torch.diag_embed(torch.ones_like(x))  # [B,D,D]
         self.x_prev = x.clone(memory_format=torch.contiguous_format)
         self.g_prev = g.clone(memory_format=torch.contiguous_format)
+        self.n_updates = 0
 
     def update(self, x, g):
         s = x - self.x_prev
@@ -25,6 +26,10 @@ class BFGS(object):
                           rho_inv.reciprocal(),
                           torch.full_like(rho_inv, 1000.))
 
+        if self.n_updates == 0:
+            scale = rho * inner(y,y)
+            self.H.mul_(scale.unsqueeze(2))
+
         HssH = torch.bmm(self.H, torch.bmm(outer(s, s), self.H.transpose(1,2)))
         sHs = inner(s, torch.bmm(self.H, s.unsqueeze(2)).squeeze(2))
         self.H = torch.where(
@@ -34,6 +39,7 @@ class BFGS(object):
         )
         self.x_prev.copy_(x, non_blocking=True)
         self.g_prev.copy_(g, non_blocking=True)
+        self.n_updates += 1
 
 
 @torch.no_grad()
