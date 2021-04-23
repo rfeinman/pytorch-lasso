@@ -78,10 +78,11 @@ The `lasso.conv2d` module implements a few solvers specialized for the 2D convol
 ### Nonlinear
 
 The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z), where D is a nonlinear decoder. 
-This module is experimental: unlike the linear solvers, which represent cannonical lasso solutions, many of the nonlinear solvers are my own personal ideas for extending linear methods.
+This module is experimental: unlike the linear solvers, which represent cannonical lasso solutions, many of the nonlinear solvers are my own personal ideas for extending linear methods (with the exception of ISTA and OWLQN, which are established techniques for nonlinear).
 
 The current offerings are as follows:
 - __ISTA__: A generalized ISTA solver for nonlinear decoders. I've included a "dynamic" learning rate option which estimates the lipschitz constant of the RSS gradient function by linearizing this function around the current point.
+- __OWLQN__: The Orthant-wise limited memory quasi-Newton (OWLQN) method presented in [9]. This is a popular technique for solving nonlinear lasso problems. 
 - __Iterative Ridge BFGS__: A generalization of the Iterative Ridge method. Uses Newton steps with a BFGS approximation of the RSS hessian.
 - __Split Bregman__: A generalization of the Split Bregman algorithm. This algorithm uses the Gauss-Newton method, a modification of Newton's method specialized for least squares objective terms.
 
@@ -110,4 +111,6 @@ Pytorch-lasso offers two variants of the dictionary learning problem: 1) the "co
 
 [7] "Coordinate descent optimization for L1 minimization with application to compressed sensing; a greedy algorithm". Li and Osher, 2009.
 
-[8] "The Split Bregman Method for L1-Regularized Problems". Goldstein & Osher, 2008.
+[8] "The split Bregman method for L1-regularized problems". Goldstein & Osher, 2008.
+
+[9] "Scalable training of L1-regularized log-linear models". Andrew & Gao, 2007.
