@@ -5,37 +5,37 @@ from scipy.optimize import minimize_scalar
 
 from ..linear.utils import batch_cholesky_solve
 
-outer = lambda u,v: u.unsqueeze(-1) * v.unsqueeze(-2)
-inner = lambda u,v: torch.sum(u*v, 1, keepdim=True)
-
 
 class BFGS(object):
     def __init__(self, x, g):
-        self.H = torch.diag_embed(torch.ones_like(x))  # [B,D,D]
+        self.B = torch.diag_embed(torch.ones_like(x))  # [B,D,D]
         self.x_prev = x.clone(memory_format=torch.contiguous_format)
         self.g_prev = g.clone(memory_format=torch.contiguous_format)
         self.n_updates = 0
 
     def update(self, x, g):
-        s = x - self.x_prev
-        y = g - self.g_prev
+        s = (x - self.x_prev).unsqueeze(2)
+        y = (g - self.g_prev).unsqueeze(2)
         # update the BFGS hessian approximation
-        rho_inv = inner(y, s)
+        rho_inv = torch.bmm(y.transpose(1,2), s)
         valid = rho_inv.abs().gt(1e-10)
         rho = torch.where(valid,
                           rho_inv.reciprocal(),
                           torch.full_like(rho_inv, 1000.))
 
         if self.n_updates == 0:
-            scale = rho * inner(y,y)
-            self.H.mul_(scale.unsqueeze(2))
+            self.B.mul_(rho * torch.bmm(y.transpose(1,2), y))
 
-        HssH = torch.bmm(self.H, torch.bmm(outer(s, s), self.H.transpose(1,2)))
-        sHs = inner(s, torch.bmm(self.H, s.unsqueeze(2)).squeeze(2))
-        self.H = torch.where(
-            valid.unsqueeze(2),
-            self.H + rho.unsqueeze(2) * outer(y, y) - HssH / sHs.unsqueeze(2),
-            self.H
+        Bs = torch.bmm(self.B, s)
+        self.B = torch.where(
+            valid,
+            torch.addcdiv(
+                torch.baddbmm(self.B, rho*y, y.transpose(1,2)),
+                torch.bmm(Bs, Bs.transpose(1,2)),
+                torch.bmm(s.transpose(1,2), Bs),
+                value=-1
+            ),
+            self.B
         )
         self.x_prev.copy_(x, non_blocking=True)
         self.g_prev.copy_(g, non_blocking=True)
@@ -104,9 +104,9 @@ def iterative_ridge_bfgs(f, x0, alpha=1.0, lr=1.0, xtol=1e-5, tikhonov=1e-4,
         # compute step direction
         diag = (alpha / xmag).masked_fill(is_zero, 0)
         rhs = (grad + diag*x).masked_fill(is_zero, 0)
-        H = bfgs.H.masked_fill((is_zero.unsqueeze(1) | is_zero.unsqueeze(2)), 0.)
-        H.diagonal(dim1=1, dim2=2).add_(diag + tikhonov)
-        d = batch_cholesky_solve(rhs, H)
+        B = bfgs.B.masked_fill((is_zero.unsqueeze(1) | is_zero.unsqueeze(2)), 0.)
+        B.diagonal(dim1=1, dim2=2).add_(diag + tikhonov)
+        d = batch_cholesky_solve(rhs, B)
 
         # optional strong-wolfe line search
         if line_search:
