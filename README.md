@@ -75,7 +75,7 @@ The `lasso.conv2d` module implements a few solvers specialized for the 2D convol
 - __ISTA__: As described above, but optimized for the conv setting. I've included code to estimate the lipschitz constant of a conv2d operator. This is needed for optimal learning rate selection.
 - __Gradient Projection__: This algorithm works with convolution, but is not yet included by default in the `lasso.conv2d` library. It is coming soon.
 
-### Nonlinear extensions
+### Nonlinear
 
 The module `lasso.nonlinear` contains some extensions for the generalized case of a nonlinear dictionary, i.e. x_hat = D(z), where D is a nonlinear decoder. 
 This module is experimental: unlike the linear solvers, which represent cannonical lasso solutions, many of the nonlinear solvers are my own personal ideas for extending linear methods.
