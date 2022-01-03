@@ -32,28 +32,23 @@ def dict_learning(X, n_components, alpha=1.0, constrained=True, persist=False,
     Z0 = None
 
     losses = torch.zeros(steps, device=device)
-    if progbar:
-        progress_bar = tqdm(total=steps)
-    for i in range(steps):
-        # infer sparse coefficients and compute loss
-        Z = sparse_encode(X, weight, alpha, Z0, **solver_kwargs)
-        losses[i] = lasso_loss(X, Z, weight, alpha)
-        if persist:
-            Z0 = Z
+    with tqdm(total=steps, disable=not progbar) as progress_bar:
+        for i in range(steps):
+            # infer sparse coefficients and compute loss
+            Z = sparse_encode(X, weight, alpha, Z0, **solver_kwargs)
+            losses[i] = lasso_loss(X, Z, weight, alpha)
+            if persist:
+                Z0 = Z
 
-        # update dictionary
-        if constrained:
-            weight = update_dict(weight, X, Z)
-        else:
-            weight = update_dict_ridge(X, Z, lambd=lambd)
+            # update dictionary
+            if constrained:
+                weight = update_dict(weight, X, Z)
+            else:
+                weight = update_dict_ridge(X, Z, lambd=lambd)
 
-        # update progress bar
-        if progbar:
+            # update progress bar
             progress_bar.set_postfix(loss=losses[i].item())
             progress_bar.update(1)
-
-    if progbar:
-        progress_bar.close()
 
     return weight, losses
 
