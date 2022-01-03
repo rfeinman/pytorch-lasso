@@ -32,13 +32,10 @@ def ridge(b, A, alpha=1e-4):
     M = torch.matmul(A.T, A)
     M.diagonal().add_(alpha)
     # solve
-    try:
-        L = torch.cholesky(M)
-    except RuntimeError as exc:
-        if 'singular' in exc.args[0]:
-            exc.args = ("The Gram matrix is not positive definite. "
-                        "Try increasing 'alpha'.",) + exc.args
-        raise
+    L, info = torch.linalg.cholesky_ex(M)
+    if info != 0:
+        raise RuntimeError("The Gram matrix is not positive definite. "
+                           "Try increasing 'alpha'.")
     x = torch.cholesky_solve(rhs, L)
     return x
 
@@ -51,13 +48,11 @@ def batch_cholesky_solve(b, A):
     assert b.dim() == 2  # [B,D]
     assert A.dim() == 3  # [B,D,D]
     b = b.unsqueeze(2)  # [B,D,1]
-    try:
-        L = torch.cholesky(A)  # [B,D,D]
+    L, info = torch.linalg.cholesky_ex(A)
+    if torch.all(info == 0):
         x = torch.cholesky_solve(b, L)  # [B,D,1]
-    except RuntimeError as exc:
-        if 'singular' not in exc.args[0]:
-            raise
+    else:
         warnings.warn('Cholesky factorization failed. Reverting to LU '
                       'decomposition...')
-        x = torch.solve(b, A)[0]  # [B,D,1]
+        x = torch.linalg.solve(A, b)  # [B,D,1]
     return x.squeeze(2)

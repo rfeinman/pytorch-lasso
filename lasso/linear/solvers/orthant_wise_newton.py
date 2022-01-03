@@ -84,7 +84,7 @@ def orthant_wise_newton(
 
     hess = torch.mm(weight.T, weight)
     hess.diagonal().add_(1e-4)
-    hess_inv = torch.cholesky_inverse(torch.cholesky(hess))
+    hess_inv = torch.cholesky_inverse(torch.linalg.cholesky(hess))
 
     # evaluate initial f(x) and f'(x)
     z = z0.detach()

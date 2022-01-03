@@ -55,7 +55,7 @@ def split_bregman(A, y, x0=None, alpha=1.0, lambd=1.0, maxiter=20, niter_inner=5
     Aty = torch.mm(A.T, y) / alpha
     AtA = torch.mm(A.T, A) / alpha
     AtA.diagonal(dim1=-2, dim2=-1).add_(lambd)
-    AtA_inv = torch.cholesky_inverse(torch.cholesky(AtA))
+    AtA_inv = torch.cholesky_inverse(torch.linalg.cholesky(AtA))
 
     update = y.new_tensor(float('inf'))
     for itn in range(maxiter):

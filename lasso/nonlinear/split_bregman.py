@@ -22,7 +22,7 @@ def _lstsq_exact(fun_with_jac, x, d, b, max_iter=5, mu=1., lambd=1., lr=1.,
         JtJ.diagonal().add_(lambd)
         try:
             p = torch.cholesky_solve(grad.unsqueeze(1),
-                                     torch.cholesky(JtJ)).squeeze(1)
+                                     torch.linalg.cholesky(JtJ)).squeeze(1)
         except RuntimeError as exc:
             if 'singular' not in exc.args[0]:
                 raise

@@ -122,7 +122,7 @@ def update_dict_ridge(x, z, lambd=1e-4):
     rhs = torch.mm(z.T, x)
     M = torch.mm(z.T, z)
     M.diagonal().add_(lambd * x.size(0))
-    L = torch.cholesky(M)
+    L = torch.linalg.cholesky(M)
     V = torch.cholesky_solve(rhs, L).T
 
     return V
